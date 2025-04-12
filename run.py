@@ -169,17 +169,19 @@ if __name__ == '__main__':
             system_prompt, user_content = build_messages(arl_member, query_type, user_profile)
 
             if supports_system_role:
+                # true chat‑style: system + user roles
                 messages = [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_content}
                 ]
+                prompt = tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True
+                )
             else:
-                combined_content = f"{system_prompt}\n\n{user_content}"
-                messages = [
-                    {"role": "user", "content": combined_content}
-                ]
-
-            prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                # fallback: raw concatenation of system + user
+                prompt = system_prompt + "\n\n" + user_content
 
             # generate and save after every generation
             outputs = llm.generate([prompt], sampling_params)
