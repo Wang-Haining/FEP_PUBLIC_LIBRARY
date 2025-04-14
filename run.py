@@ -128,7 +128,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_tokens', type=int, default=4096, help='maximum tokens to generate')
     args = parser.parse_args()
 
-    llm = LLM(model=args.model_name, trust_remote_code=True, dtype="bf16")
+    llm = LLM(model=args.model_name, trust_remote_code=True, dtype="bfloat16")
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
 
     supports_system_role = tokenizer.chat_template and "system" in tokenizer.chat_template
