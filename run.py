@@ -87,7 +87,17 @@ def sample_name_sex_race_eth_generator(n):
     """
     Generator that yields (first_name, last_name, sex, race_ethnicity)
     with uniform coverage across all 12 (sex × race_ethnicity) groups.
+    Filters out surnames with invalid or zero-valued race distributions.
     """
+    # filter valid surname rows: no NaNs and total > 0
+    valid_surnames = surnames.dropna(subset=['race_prop'])
+    valid_surnames = valid_surnames[
+        valid_surnames['race_prop'].apply(lambda x: isinstance(x, list) and not any(pd.isna(x)) and sum(x) > 0)
+    ].reset_index(drop=True)
+
+    if valid_surnames.empty:
+        raise ValueError("No valid surnames with usable race_prop distributions.")
+
     demographic_cells = [(sex, race) for sex in ['M', 'F'] for race in race_eth_labels]
 
     samples_per_cell = n // len(demographic_cells)
@@ -101,27 +111,33 @@ def sample_name_sex_race_eth_generator(n):
     random.shuffle(targets)
 
     for sex, race_eth in targets:
-        # sample first name by sex
+        # sample first name
         first = np.random.choice(
             male_probs.index if sex == 'M' else female_probs.index,
             p=male_probs.values if sex == 'M' else female_probs.values
         )
 
-        # sample surname whose race_prop matches target race_eth
-        surname_weights = surnames['count'] / surnames['count'].sum()
+        # sample surname conditioned on matching race_eth
+        surname_weights = valid_surnames['count'] / valid_surnames['count'].sum()
         for _ in range(100):  # retry up to 100 times
-            idx = np.random.choice(len(surnames), p=surname_weights)
-            props = np.array(surnames.at[idx, 'race_prop'], dtype=float)
+            idx = np.random.choice(len(valid_surnames), p=surname_weights)
+            props = np.array(valid_surnames.at[idx, 'race_prop'], dtype=float)
+
+            if np.any(np.isnan(props)) or props.sum() == 0:
+                continue  # skip if invalid
+
             props /= props.sum()
             sampled_race = np.random.choice(race_eth_labels, p=props)
             if sampled_race == race_eth:
-                last = surnames.at[idx, 'name']
+                last = valid_surnames.at[idx, 'name']
                 break
         else:
-            # fallback: randomly sample a surname if match not found
-            last = surnames.sample(weights=surnames['count']).iloc[0]['name']
+            # fallback: random surname
+            last = valid_surnames.sample(weights=valid_surnames['count']).iloc[0]['name']
+            print(f"[Warning] Fallback used for ({sex}, {race_eth})")
 
         yield first, last, sex, race_eth
+
 
 
 # ──────────────────────────────────────────────────────────────────────────────
