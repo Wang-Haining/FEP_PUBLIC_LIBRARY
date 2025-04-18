@@ -5,7 +5,8 @@ LLM-powered virtual reference services across ARL libraries.
 For each query, we randomly sample:
 - an ARL library member (e.g. Harvard, UCLA)
 - a query type (sports team, population, or subject collection)
-- a synthetic user name (realistic first + last name) with annotated sex and race/ethnicity
+- a synthetic user name (realistic first + last name) with annotated sex and
+    race/ethnicity
 - a patron type (e.g. Faculty, Graduate Student, Outside User)
 
 User identity is embedded as a natural language utterance.
@@ -60,6 +61,7 @@ race_eth_labels = [
 ]
 surnames['race_prop'] = surnames[pct_cols].values.tolist()
 
+
 # ──────────────────────────────────────────────────────────────────────────────
 # 2) Load SSA baby names (first name × sex frequency)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -76,6 +78,7 @@ male_probs = ssa.query("Gender=='M'").set_index('Name')['Count']
 male_probs = male_probs / male_probs.sum()
 female_probs = ssa.query("Gender=='F'").set_index('Name')['Count']
 female_probs = female_probs / female_probs.sum()
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 3) Sample a full user name + sex + race/ethnicity
@@ -214,7 +217,8 @@ if __name__ == '__main__':
                 )
             elif query_type == 'population':
                 user_query = (
-                    f"Could you tell me the population of {arl['city']} in 1963 and 1993?"
+                    f"Could you tell me the population of {arl['city']} in 1963 and "
+                    f"1993?"
                 )
             else:  # 'subject'
                 user_query = (
@@ -241,7 +245,8 @@ if __name__ == '__main__':
             else:
                 prompt = f"{system_prompt}\n\n{user_content}"
 
-            params = SamplingParams(temperature=args.temperature, max_tokens=args.max_tokens)
+            params = SamplingParams(temperature=args.temperature,
+                                    max_tokens=args.max_tokens)
             outputs = llm.generate([prompt], params)
             text = outputs[0].outputs[0].text.strip()
 
