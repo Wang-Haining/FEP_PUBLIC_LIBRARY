@@ -1,0 +1,18 @@
+#!/bin/sh
+#SBATCH --job-name=gpt_4o
+#SBATCH --account=group-jasonclark
+#SBATCH --partition=unsafe
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
+#SBATCH --time=1-00:00:00
+#SBATCH --output=logs/%j.out
+#SBATCH --error=logs/%j.err
+#SBATCH --mail-user=haining.wang@montana.edu
+#SBATCH --mail-type=ALL
+
+
+module load Python/3.10.8-GCCcore-12.2.0
+module load CUDA/12.2.0
+. .venv/bin/activate
+
+python run.py --model_name gpt-4o-2024-08-06
