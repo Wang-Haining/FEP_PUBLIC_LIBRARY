@@ -120,7 +120,7 @@ SSA_URL = (
     "https://raw.githubusercontent.com/Wang-Haining/"
     "equity_across_difference/refs/heads/main/data/NationalNames.csv"
 )
-ssa = pd.read_csv(SSA_URL, usecols=['Name','Gender','Count'])
+ssa = pd.read_csv(SSA_URL, usecols=['Name', 'Gender', 'Count'])
 ssa = ssa.groupby(['Name','Gender'], as_index=False)['Count'].sum()
 ssa = ssa.query("Count >= 5").reset_index(drop=True)
 ssa['Name'] = ssa['Name'].str.title()  # proper capitalization
@@ -141,52 +141,55 @@ def sample_name_sex_race_eth_generator(n):
     # filter valid surname rows: no NaNs and total > 0
     valid_surnames = surnames.dropna(subset=['race_prop'])
     valid_surnames = valid_surnames[
-        valid_surnames['race_prop'].apply(lambda x: isinstance(x, list) and not any(pd.isna(x)) and sum(x) > 0)
+        valid_surnames['race_prop']
+        .apply(lambda x: isinstance(x, list) and sum(x) > 0)
     ].reset_index(drop=True)
 
     if valid_surnames.empty:
         raise ValueError("No valid surnames with usable race_prop distributions.")
 
     demographic_cells = [(sex, race) for sex in ['M', 'F'] for race in race_eth_labels]
-
     samples_per_cell = n // len(demographic_cells)
     remainder = n % len(demographic_cells)
 
+    # build balanced list of target cells
     targets = []
     for i, cell in enumerate(demographic_cells):
         count = samples_per_cell + (1 if i < remainder else 0)
         targets.extend([cell] * count)
-
     random.shuffle(targets)
 
     for sex, race_eth in targets:
-        # sample first name
+        # sample first name according to sex
         first = np.random.choice(
             male_probs.index if sex == 'M' else female_probs.index,
             p=male_probs.values if sex == 'M' else female_probs.values
         )
 
-        # sample surname conditioned on matching race_eth
+        # sample surname conditioned on race_eth
         surname_weights = valid_surnames['count'] / valid_surnames['count'].sum()
         for _ in range(1000):  # retry up to 1000 times
             idx = np.random.choice(len(valid_surnames), p=surname_weights)
             props = np.array(valid_surnames.at[idx, 'race_prop'], dtype=float)
 
-            if np.any(np.isnan(props)) or props.sum() == 0:
-                continue  # skip if invalid
+            # skip invalid entries
+            if props.sum() == 0:
+                continue
 
             props /= props.sum()
             sampled_race = np.random.choice(race_eth_labels, p=props)
             if sampled_race == race_eth:
                 last = valid_surnames.at[idx, 'name']
                 break
-            else:
-                raise RuntimeError(
-                    f"No suitable surname found for demographic cell: sex={sex}, "
-                    f"race_ethnicity={race_eth} after 1000 attempts."
-                )
+        else:
+            # executed only if the for-loop did not break
+            raise RuntimeError(
+                f"No suitable surname found for demographic cell: sex={sex}, "
+                f"race_ethnicity={race_eth} after 1000 attempts."
+            )
 
         yield first, last, sex, race_eth
+
 
 
 def build_messages(arl_member, patron_type, user_query, first, last):
@@ -241,7 +244,8 @@ if __name__ == '__main__':
         tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
         supports_system = template_supports_system(tokenizer)
         if not supports_system:
-            print(f"[Warning] model '{args.model_name}' does **NOT** support a system role; falling back to plain prompt formatting.")
+            print(f"[Warning] model '{args.model_name}' does NOT support a system role; "
+                  f"falling back to plain prompt formatting.")
 
     tag = args.model_name.split('/')[-1].replace('-', '_')
     completed_seeds = {
