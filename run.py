@@ -55,12 +55,12 @@ ARL_MEMBERS = [
     {'member': 'University of Notre Dame Hesburgh Libraries', 'institution': 'University of Notre Dame', 'team': 'Fighting Irish', 'collection': 'Numismatics', 'city': 'Notre Dame'},
     {'member': 'Ohio State University Libraries', 'institution': 'Ohio State University', 'team': 'Buckeyes', 'collection': 'Billy Ireland Cartoon Library & Museum', 'city': 'Columbus'},
     {'member': 'University of Iowa Libraries', 'institution': 'University of Iowa', 'team': 'Hawkeyes', 'collection': 'Giants of 20th Century English Literature: Iris Murdoch and Angus Wilson', 'city': 'Iowa City'},
-    {'member': 'University of Wisconsin–Madison Libraries', 'institution': 'University of Wisconsin–Madison', 'team': 'Badgers', 'collection': 'Printing Audubon’s The Birds of America', 'city': 'Madison'},
+    {'member': 'University of Wisconsin–Madison Libraries', 'institution': 'University of Wisconsin–Madison', 'team': 'Badgers', 'collection': 'Printing Audubon's The Birds of America', 'city': 'Madison'},
     {'member': 'University of Nebraska–Lincoln Libraries', 'institution': 'University of Nebraska–Lincoln', 'team': 'Cornhuskers', 'collection': 'Unkissed Kisses', 'city': 'Lincoln'},
     {'member': 'Penn State University Libraries', 'institution': 'Pennsylvania State University', 'team': 'Nittany Lions', 'collection': 'A Few Good Women', 'city': 'University Park'},
     # south
     {'member': 'the University of Alabama Libraries', 'institution': 'University of Alabama', 'team': 'Crimson Tide', 'collection': 'A.S. Williams III Americana Collection', 'city': 'Tuscaloosa'},
-    {'member': 'University of Florida George A. Smathers Libraries', 'institution': 'University of Florida', 'team': 'Gators', 'collection': 'Baldwin Library of Historical Children’s Literature', 'city': 'Gainesville'},
+    {'member': 'University of Florida George A. Smathers Libraries', 'institution': 'University of Florida', 'team': 'Gators', 'collection': 'Baldwin Library of Historical Children's Literature', 'city': 'Gainesville'},
     {'member': 'University of Georgia Libraries', 'institution': 'University of Georgia', 'team': 'Bulldogs', 'collection': 'Walter J. Brown Media Archives and Peabody Awards Collection', 'city': 'Athens'},
     {'member': 'University of Miami Libraries', 'institution': 'University of Miami', 'team': 'Hurricanes', 'collection': 'Atlantic World', 'city': 'Coral Gables'},
     {'member': 'Louisiana State University Libraries', 'institution': 'Louisiana State University', 'team': 'Tigers', 'collection': 'AUDUBON DAY 2024', 'city': 'Baton Rouge'},
@@ -218,7 +218,8 @@ def safe_chat_completion(**kwargs):
 
 
 def template_supports_system(tokenizer) -> bool:
-    if not getattr(tokenizer, "chat_template", None):
+    """Check if the tokenizer's chat template supports system role."""
+    if not hasattr(tokenizer, "chat_template"):
         return False
     tpl = tokenizer.chat_template
     if isinstance(tpl, str):
@@ -228,6 +229,75 @@ def template_supports_system(tokenizer) -> bool:
             return tpl.supports_role("system")
         except AttributeError:
             return False
+
+
+def safely_apply_chat_template(tokenizer, messages, add_generation_prompt=True):
+    """
+    Safely apply chat template, handling models that don't support system role.
+    Returns formatted prompt.
+    """
+    try:
+        # first attempt with original messages
+        return tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=add_generation_prompt
+        )
+    except Exception as e:
+        # if the error mentions "system role", try removing system message
+        if "system" in str(e).lower() and "role" in str(e).lower():
+            print(f"[Warning] Chat template error: {e}")
+            print(f"[Warning] Attempting to format without system role")
+
+            # Extract system message content if it exists
+            system_content = None
+            user_messages = []
+            for msg in messages:
+                if msg["role"] == "system":
+                    system_content = msg["content"]
+                else:
+                    user_messages.append(msg)
+
+            # if we have both system content and user messages
+            if system_content and user_messages:
+                first_user_msg = user_messages[0]
+                # prepend system content to the first user message
+                modified_msg = {
+                    "role": "user",
+                    "content": f"{system_content}\n\n{first_user_msg['content']}"
+                }
+                modified_messages = [modified_msg] + user_messages[1:]
+                return tokenizer.apply_chat_template(
+                    modified_messages, tokenize=False, add_generation_prompt=add_generation_prompt
+                )
+
+            # if only system message, convert to user message
+            if system_content and not user_messages:
+                modified_messages = [{"role": "user", "content": system_content}]
+                return tokenizer.apply_chat_template(
+                    modified_messages, tokenize=False, add_generation_prompt=add_generation_prompt
+                )
+
+            # if only user messages, proceed with those
+            if user_messages:
+                return tokenizer.apply_chat_template(
+                    user_messages, tokenize=False, add_generation_prompt=add_generation_prompt
+                )
+
+        # For other errors, or if our workarounds failed, fall back to a simple format
+        print(f"[Warning] Could not apply chat template: {e}")
+        print(f"[Warning] Falling back to simple format")
+
+        # Simple concatenation fallback
+        formatted_messages = []
+        for msg in messages:
+            role = msg["role"].upper()
+            content = msg["content"]
+            formatted_messages.append(f"{role}: {content}")
+
+        prompt = "\n\n".join(formatted_messages)
+        if add_generation_prompt:
+            prompt += "\n\nASSISTANT: "
+
+        return prompt
 
 
 if __name__ == '__main__':
@@ -246,7 +316,7 @@ if __name__ == '__main__':
         tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
         supports_system = template_supports_system(tokenizer)
         if not supports_system:
-            print(f"[Warning] model '{args.model_name}' does NOT support a system role; falling back to plain prompt formatting.")
+            print(f"[Warning] model '{args.model_name}' does NOT support a system role; will use fallback formatting.")
 
     tag = args.model_name.split('/')[-1].replace('-', '_')
     completed_seeds = {
@@ -313,16 +383,14 @@ if __name__ == '__main__':
                 )
                 text = response.choices[0].message["content"].strip()
             else:
-                if supports_system:
-                    messages = [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user",   "content": user_content}
-                    ]
-                    prompt = tokenizer.apply_chat_template(
-                        messages, tokenize=False, add_generation_prompt=True
-                    )
-                else:
-                    prompt = f"{system_prompt}\n\n{user_content}"
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": user_content}
+                ]
+
+                prompt = safely_apply_chat_template(
+                    tokenizer, messages, add_generation_prompt=True
+                )
 
                 params = SamplingParams(temperature=args.temperature, max_tokens=args.max_tokens)
                 outputs = llm.generate([prompt], params)
@@ -359,4 +427,3 @@ if __name__ == '__main__':
         # remove any leftover partial file
         if partial_file and os.path.exists(partial_file):
             os.remove(partial_file)
-
