@@ -26,7 +26,6 @@ import zipfile
 
 import numpy as np
 import openai
-import openai.error
 import pandas as pd
 import requests
 from tqdm import tqdm
