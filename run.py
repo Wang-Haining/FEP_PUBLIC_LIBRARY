@@ -91,13 +91,16 @@ pct_cols = ['pctwhite','pctblack','pctapi','pctaian','pct2prace','pcthispanic']
 surnames['count'] = pd.to_numeric(surnames['count'], errors='coerce')
 for c in pct_cols:
     surnames[c] = pd.to_numeric(surnames[c], errors='coerce')
+
+# fill NaNs, drop bad rows, group, filter, title‐case
+surnames[pct_cols] = surnames[pct_cols].fillna(0.0)
 surnames = surnames.dropna(subset=['name', 'count'])
 surnames = (
     surnames.groupby('name', as_index=False)
     .agg({'count':'sum', **{c:'mean' for c in pct_cols}})
 )
 surnames = surnames[surnames[pct_cols].sum(axis=1) > 0].reset_index(drop=True)
-surnames['name'] = surnames['name'].str.title()  # proper capitalization
+surnames['name'] = surnames['name'].str.title()
 
 race_eth_labels = [
     'White',
@@ -107,6 +110,8 @@ race_eth_labels = [
     'Two or More Races',
     'Hispanic or Latino'
 ]
+
+# build the list of proportions
 surnames['race_prop'] = surnames[pct_cols].values.tolist()
 
 
