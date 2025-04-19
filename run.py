@@ -223,9 +223,26 @@ if __name__ == '__main__':
         llm = LLM(model=args.model_name, trust_remote_code=True, dtype="bfloat16")
         tokenizer = AutoTokenizer.from_pretrained(args.model_name,
                                                   trust_remote_code=True)
-        supports_system = tokenizer.chat_template and "system" in tokenizer.chat_template
+        supports_system = (
+                hasattr(tokenizer, "chat_template") and
+                tokenizer.chat_template is not None and
+                tokenizer.chat_template.supports_role("system")
+        )
+        if not supports_system:
+            print(
+                f"[Warning] Model '{args.model_name}' does not support system messages. Falling back to plain prompt formatting.")
+
+    tag = args.model_name.split('/')[-1].replace('-', '_')
+    completed_seeds = {
+        int(f.split("_seed_")[-1].split(".")[0])
+        for f in os.listdir(OUTPUT_DIR)
+        if f.startswith(tag + "_seed_") and f.endswith(".json")
+    }
 
     for seed in FIXED_SEEDS:
+        if seed in completed_seeds:
+            print(f"[Info] Skipping seed {seed} (already completed)")
+            continue
         random.seed(seed)
         results = []
 
@@ -306,9 +323,20 @@ if __name__ == '__main__':
                 'prompt': prompt,
                 'response': text
             })
+            if i > 0 and i % 50 == 0:
+                partial_file = os.path.join(OUTPUT_DIR,
+                                            f"{tag}_seed_{seed}_partial.json")
+                with open(partial_file, 'w', encoding='utf-8') as f:
+                    json.dump(results, f, ensure_ascii=False, indent=2)
+                print(
+                    f"[Checkpoint] Saved {len(results)} partial results to {partial_file}")
 
         tag = args.model_name.split('/')[-1].replace('-', '_')
         out_file = os.path.join(OUTPUT_DIR, f"{tag}_seed_{seed}.json")
         with open(out_file, 'w', encoding='utf-8') as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
         print(f"Saved {len(results)} records to {out_file}")
+
+        # cleanup
+        if os.path.exists(partial_file):
+            os.remove(partial_file)
