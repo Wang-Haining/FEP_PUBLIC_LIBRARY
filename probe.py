@@ -48,7 +48,7 @@ def load_data(model_name: str,
     Load model generation outputs and extract text responses and target characteristics.
 
     Parameters:
-    - model_name: HF model name or shorthand (e.g., 'meta-llama/Llama-3.1-8B-Instruct').
+    - model_name: HF/OpenAI model name (e.g., 'meta-llama/Llama-3.1-8B-Instruct', 'gpt-4o').
     - characteristic: One of 'sex', 'race_ethnicity', or 'patron_type'.
     - input_dir: Directory containing seed-wise output JSON files.
 
@@ -58,7 +58,7 @@ def load_data(model_name: str,
     assert characteristic in ['sex', 'race_ethnicity', 'patron_type'], \
         "Characteristic must be one of: sex, race_ethnicity, patron_type"
 
-    tag = model_name.split('/')[-1].replace('-', '_')
+    tag = model_name.split('/')[-1].replace('-', '_').replace('.', '_').replace('/', '_')
     files = [f for f in os.listdir(input_dir) if f.startswith(f"{tag}_seed_") and f.endswith(".json")]
 
     rows = []
@@ -75,6 +75,7 @@ def load_data(model_name: str,
     df = pd.DataFrame(rows)
     df = df.dropna(subset=["response", "label"]).reset_index(drop=True)
     return df
+
 
 
 def compute_ci(accs, confidence=0.95):
