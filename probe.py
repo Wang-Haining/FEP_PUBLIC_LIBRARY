@@ -125,6 +125,7 @@ def probe(df, mode="content", max_features=200):
             def __call__(self, doc):
                 tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
                 return [t for t in tokens if t and t not in stop_words_set]
+
         vectorizer = TfidfVectorizer(
             tokenizer=ContentTokenizer(),
             token_pattern=None,
@@ -137,6 +138,7 @@ def probe(df, mode="content", max_features=200):
             def __call__(self, doc):
                 tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
                 return [t for t in tokens if t in stop_words_set]
+
         vectorizer = CountVectorizer(
             tokenizer=StopwordTokenizer(),
             token_pattern=None,
@@ -145,8 +147,9 @@ def probe(df, mode="content", max_features=200):
         X = vectorizer.fit_transform(df["response"]).toarray()
         X = StandardScaler().fit_transform(X)
 
-    # encode labels & prepare 5-fold “seed” splits
-    y = LabelEncoder().fit_transform(df["label"])
+    # encode labels & prepare 5-fold "seed" splits
+    le = LabelEncoder()
+    y = le.fit_transform(df["label"])
     feature_names = vectorizer.get_feature_names_out()
     seeds = sorted(df["seed"].unique())
     splits = [(df["seed"] != s, df["seed"] == s) for s in seeds]
@@ -154,16 +157,16 @@ def probe(df, mode="content", max_features=200):
     # three classifiers
     model_defs = {
         "logistic": lambda: LogisticRegression(C=1.0, max_iter=1000),
-        "mlp":      lambda: MLPClassifier(
-                         hidden_layer_sizes=(50,),
-                         max_iter=2000,
-                         random_state=0
-                     ),
-        "xgboost":  lambda: XGBClassifier(
-                         use_label_encoder=False,
-                         eval_metric="logloss",
-                         verbosity=0
-                     )
+        "mlp": lambda: MLPClassifier(
+            hidden_layer_sizes=(50,),
+            max_iter=2000,
+            random_state=0
+        ),
+        "xgboost": lambda: XGBClassifier(
+            use_label_encoder=False,
+            eval_metric="logloss",
+            verbosity=0
+        )
     }
 
     for name, constructor in model_defs.items():
@@ -180,10 +183,10 @@ def probe(df, mode="content", max_features=200):
         mean_acc, ci = compute_ci(accs)
         avg_weights = (
             pd.concat(weights)
-              .groupby("feature")
-              .mean()
-              .reset_index()
-              .sort_values("weight", ascending=False)
+            .groupby("feature")
+            .mean()
+            .reset_index()
+            .sort_values("weight", ascending=False)
         )
         results[name] = {
             "mean_acc": mean_acc,
@@ -191,61 +194,87 @@ def probe(df, mode="content", max_features=200):
             "feature_weights": avg_weights
         }
 
+    # add constant term for statsmodels
     X_const = sm.add_constant(X)
 
-    # suppress convergence warnings
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        # always use MNLogit (binary Logit is just a special case)
-        sm_model = sm.MNLogit(y, X_const).fit(disp=False)
+    # use logistic regression for binary classification (faster and more stable)
+    n_classes = len(np.unique(y))
 
-    # params & p‑values come back as DataFrames: (n_exog × n_classes)
-    params = sm_model.params
-    pvals = sm_model.pvalues
+    # single, streamlined approach without try-except
+    if n_classes == 2:
+        # binary classification case - use Logit
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sm_model = sm.Logit(y, X_const).fit(disp=False, method='newton')
 
-    # create feature names list (include 'const' for the intercept)
-    feature_names_with_const = ['const'] + list(feature_names)
+        # get parameters and p-values
+        params = sm_model.params
+        pvals = sm_model.pvalues
 
-    # create DataFrames from params and pvals
-    class_labels = sorted(df['label'].unique())
-    if len(class_labels) == 2:
-        # Binary classification case - params/pvals are 1D arrays
-        params_df = pd.DataFrame(params, index=feature_names_with_const, columns=['0'])
-        pvals_df = pd.DataFrame(pvals, index=feature_names_with_const, columns=['0'])
+        # create feature names list with const
+        feature_names_with_const = ['const'] + list(feature_names)
+
+        # filter out NaN values
+        valid_indices = ~np.isnan(params)
+        valid_features = [feature_names_with_const[i] for i in range(len(valid_indices))
+                          if valid_indices[i]]
+        valid_params = params[valid_indices]
+        valid_pvals = pvals[valid_indices]
+
+        # create stats DataFrame
+        stats_df = pd.DataFrame({
+            'feature': valid_features,
+            'class': '0',
+            'coef': valid_params,
+            'p_value': valid_pvals
+        })
     else:
-        # multi-class case - params/pvals are 2D arrays
-        params_df = pd.DataFrame(params, index=feature_names_with_const)
-        pvals_df = pd.DataFrame(pvals, index=feature_names_with_const)
+        # multi-class classification - use MNLogit
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='newton')
 
-    stats_df = (
-        params_df
-        .reset_index()
-        .melt(
-            id_vars="index",
-            var_name="class",
-            value_name="coef"
-        )
-    )
+        # get flattened params and p-values
+        params = sm_model.params.flatten()
+        pvals = sm_model.pvalues.flatten()
 
-    pval_df = (
-        pvals_df
-        .reset_index()
-        .melt(
-            id_vars="index",
-            var_name="class",
-            value_name="p_value"
-        )
-    )
+        # create expanded feature and class lists
+        feature_names_with_const = ['const'] + list(feature_names)
+        features_expanded = []
+        classes_expanded = []
 
-    # merge coefficients + p‑values, rename feature column, drop intercept
-    stats_df = (
-        stats_df
-        .merge(pval_df, on=["index", "class"])
-        .rename(columns={"index": "feature"})
-    )
-    stats_df = stats_df[stats_df.feature != "const"].reset_index(drop=True)
+        for i, feat in enumerate(feature_names_with_const):
+            for c in range(n_classes - 1):  # MNLogit uses K-1 classes
+                features_expanded.append(feat)
+                classes_expanded.append(str(c))
+
+        # filter out NaN values
+        valid_mask = ~np.isnan(params)
+        if len(features_expanded) > len(valid_mask):
+            features_expanded = features_expanded[:len(valid_mask)]
+            classes_expanded = classes_expanded[:len(valid_mask)]
+
+        # create stats DataFrame
+        stats_df = pd.DataFrame({
+            'feature': [f for i, f in enumerate(features_expanded) if
+                        i < len(valid_mask) and valid_mask[i]],
+            'class': [c for i, c in enumerate(classes_expanded) if
+                      i < len(valid_mask) and valid_mask[i]],
+            'coef': params[valid_mask],
+            'p_value': pvals[valid_mask]
+        })
+
+    # remove constant term and filter out any remaining NaN values
+    stats_df = stats_df[stats_df.feature != 'const'].reset_index(drop=True)
+    stats_df = stats_df.dropna(subset=['coef', 'p_value']).reset_index(drop=True)
+
+    # sort by coefficient magnitude (absolute value) for better display
+    stats_df = stats_df.loc[
+        stats_df['coef'].abs().sort_values(ascending=False).index].reset_index(
+        drop=True)
 
     results["statsmodels"] = stats_df
+
     return results
 
 
