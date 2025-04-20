@@ -79,7 +79,6 @@ def load_data(model_name: str,
     return df
 
 
-
 def compute_ci(accs, confidence=0.95):
     mean = np.mean(accs)
     sem = np.std(accs, ddof=1) / np.sqrt(len(accs))
