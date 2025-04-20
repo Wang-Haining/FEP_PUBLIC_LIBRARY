@@ -192,8 +192,6 @@ def probe(df, mode="content", max_features=200):
             "feature_weights": avg_weights
         }
 
-    # … same as before …
-
     X_const = sm.add_constant(X)
     if len(np.unique(y)) == 2:
         sm_model = sm.Logit(y, X_const).fit(disp=False)
