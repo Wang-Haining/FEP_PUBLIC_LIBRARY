@@ -29,7 +29,6 @@ import nltk
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-import tqdm
 from nltk.corpus import stopwords
 from scipy.stats import t
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -37,6 +36,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from tqdm import tqdm
 from xgboost import XGBClassifier
 
 nltk.download('stopwords')
