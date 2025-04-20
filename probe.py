@@ -45,7 +45,7 @@ stop_words_set = set(stopwords.words("english"))
 
 def load_data(model_name: str,
               characteristic: str,
-              input_dir: str = "/content/equity_across_difference/outputs") -> pd.DataFrame:
+              input_dir: str = "outputs") -> pd.DataFrame:
     """
     Load model generation outputs and extract text responses and target characteristics.
 
