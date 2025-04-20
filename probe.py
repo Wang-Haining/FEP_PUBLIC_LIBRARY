@@ -193,42 +193,44 @@ def probe(df, mode="content", max_features=200):
         }
 
     X_const = sm.add_constant(X)
-    if len(np.unique(y)) == 2:
-        sm_model = sm.Logit(y, X_const).fit(disp=False)
-    else:
+
+    # suppress convergence warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        # always use MNLogit (binary Logit is just a special case)
         sm_model = sm.MNLogit(y, X_const).fit(disp=False)
 
-    # for binary, params is a Series; for MNLogit it's a DataFrame of shape (k_exog, n_classes)
+    # params & p‑values come back as DataFrames: (n_exog × n_classes)
     params = sm_model.params
-    pvals = sm_model.pvalues
+    pvals  = sm_model.pvalues
 
-    if isinstance(params, pd.Series):  # binary
-        features = feature_names
-        coefs = params[1:]
-        pvs = pvals[1:]
-        stats_df = pd.DataFrame({
-            "feature": features,
-            "coef": coefs,
-            "p_value": pvs
-        })
-    else:  # MNLogit → DataFrame: index = exog names, columns = each class
-        # melt into long form [feature, class, coef, p_value]
-        stats_df = (
-            params
-            .iloc[1:]  # drop intercept
-            .stack()
-            .reset_index()
-            .rename(columns={"level_0": "feature", "level_1": "class", 0: "coef"})
+    # turn into long form
+    stats_df = (
+        params
+        .reset_index()  # index (const & features) → column named 'index'
+        .melt(
+            id_vars="index",
+            var_name="class",
+            value_name="coef"
         )
-        pval_df = (
-            pvals
-            .iloc[1:]
-            .stack()
-            .reset_index()
-            .rename(columns={"level_0": "feature", "level_1": "class", 0: "p_value"})
+    )
+    pval_df = (
+        pvals
+        .reset_index()
+        .melt(
+            id_vars="index",
+            var_name="class",
+            value_name="p_value"
         )
-        stats_df = stats_df.merge(pval_df, on=["feature", "class"])
-        # now stats_df has columns: feature, class, coef, p_value
+    )
+
+    # merge coefficients + p‑values, rename feature column, drop intercept
+    stats_df = (
+        stats_df
+        .merge(pval_df, on=["index", "class"])
+        .rename(columns={"index": "feature"})
+    )
+    stats_df = stats_df[stats_df.feature != "const"].reset_index(drop=True)
 
     results["statsmodels"] = stats_df
 
