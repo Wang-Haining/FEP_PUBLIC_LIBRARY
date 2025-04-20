@@ -202,20 +202,34 @@ def probe(df, mode="content", max_features=200):
 
     # params & p‑values come back as DataFrames: (n_exog × n_classes)
     params = sm_model.params
-    pvals  = sm_model.pvalues
+    pvals = sm_model.pvalues
 
-    # turn into long form
+    # create feature names list (include 'const' for the intercept)
+    feature_names_with_const = ['const'] + list(feature_names)
+
+    # create DataFrames from params and pvals
+    class_labels = sorted(df['label'].unique())
+    if len(class_labels) == 2:
+        # Binary classification case - params/pvals are 1D arrays
+        params_df = pd.DataFrame(params, index=feature_names_with_const, columns=['0'])
+        pvals_df = pd.DataFrame(pvals, index=feature_names_with_const, columns=['0'])
+    else:
+        # multi-class case - params/pvals are 2D arrays
+        params_df = pd.DataFrame(params, index=feature_names_with_const)
+        pvals_df = pd.DataFrame(pvals, index=feature_names_with_const)
+
     stats_df = (
-        params
-        .reset_index()  # index (const & features) → column named 'index'
+        params_df
+        .reset_index()
         .melt(
             id_vars="index",
             var_name="class",
             value_name="coef"
         )
     )
+
     pval_df = (
-        pvals
+        pvals_df
         .reset_index()
         .melt(
             id_vars="index",
@@ -233,7 +247,6 @@ def probe(df, mode="content", max_features=200):
     stats_df = stats_df[stats_df.feature != "const"].reset_index(drop=True)
 
     results["statsmodels"] = stats_df
-
     return results
 
 
