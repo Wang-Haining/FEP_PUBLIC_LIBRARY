@@ -30,6 +30,7 @@ import nltk
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
+import tqdm
 from nltk.corpus import stopwords
 from scipy.stats import t
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -268,17 +269,52 @@ def plot_volcano(statsmodels_df, top_n_labels=20, title="Volcano Plot"):
     plt.show()
 
 
+def serialize_for_json(results):
+    def convert(obj):
+        if isinstance(obj, pd.DataFrame):
+            return obj.to_dict(orient="records")
+        elif isinstance(obj, (np.float32, np.float64)):
+            return float(obj)
+        elif isinstance(obj, (np.int32, np.int64)):
+            return int(obj)
+        elif isinstance(obj, (np.ndarray, list)):
+            return [convert(i) for i in obj]
+        elif isinstance(obj, dict):
+            return {k: convert(v) for k, v in obj.items()}
+        else:
+            return obj
+    return convert(results)
+
+
+def main():
+    model_names = [
+        "meta-llama/Llama-3.1-8B-Instruct",
+        "mistralai/Ministral-8B-Instruct-2410",
+        "google/gemma-2-9b-it"
+    ]
+    characteristics = ["sex", "race_ethnicity", "patron_type"]
+    modes = ["content", "stopwords"]
+
+    all_results = {}
+    total = len(model_names) * len(characteristics) * len(modes)
+    progress = tqdm(total=total, desc="Running probes")
+
+    for model in model_names:
+        all_results[model] = {}
+        for char in characteristics:
+            df = load_data(model, char)
+            all_results[model][char] = {}
+            for mode in modes:
+                results = probe(df, mode=mode, max_features=200)
+                all_results[model][char][mode] = results
+                progress.update(1)
+
+    progress.close()
+
+    with open("probe.json", "w") as f:
+        json.dump(serialize_for_json(all_results), f, indent=2)
+    print("\nAll experiments completed and results saved to 'probe.json'.")
+
+
 if __name__ == "__main__":
-    model_name = "meta-llama/Llama-3.2-1B-Instruct"
-    characteristic = "sex"
-
-    df = load_data(model_name, characteristic)
-    print(df.head())
-
-    results = probe(df, mode="content", max_features=200)
-    print("Logistic Acc & CI:", results["logistic"]["mean_acc"], results["logistic"]["ci"])
-    print_top_features(results, top_n=10)
-
-    results_stop = probe(df, mode="stopwords", max_features=200)
-    print_top_features(results_stop, top_n=10)
-    plot_volcano(results_stop["statsmodels"], top_n_labels=20)
+    main()
