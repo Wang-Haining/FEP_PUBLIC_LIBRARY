@@ -25,7 +25,6 @@ import os
 import string
 import warnings
 
-import matplotlib.pyplot as plt
 import nltk
 import numpy as np
 import pandas as pd
@@ -249,24 +248,6 @@ def print_top_features(results, top_n=10):
     if "statsmodels" in results:
         print(f"\n=== Top {top_n} features by STATS MODELS Logistic Regression (with p-values) ===")
         print(results["statsmodels"].head(top_n).to_string(index=False))
-
-
-def plot_volcano(statsmodels_df, top_n_labels=20, title="Volcano Plot"):
-    df = statsmodels_df.copy()
-    df['log_p'] = -np.log10(df['p_value'].clip(lower=1e-10))
-    plt.figure(figsize=(10, 6))
-    plt.scatter(df['coef'], df['log_p'], alpha=0.6, s=30)
-    plt.axhline(y=-np.log10(0.05), color='gray', linestyle='--', linewidth=1)
-    plt.axvline(x=0, color='black', linestyle='--', linewidth=1)
-    top = df.sort_values('log_p', ascending=False).head(top_n_labels)
-    for _, row in top.iterrows():
-        plt.text(row['coef'], row['log_p'], row['feature'], fontsize=9, ha='center', va='bottom')
-    plt.xlabel("Coefficient (log-odds)")
-    plt.ylabel("-log10(p-value)")
-    plt.title(title)
-    plt.grid(True, linestyle='--', alpha=0.3)
-    plt.tight_layout()
-    plt.show()
 
 
 def serialize_for_json(results):
