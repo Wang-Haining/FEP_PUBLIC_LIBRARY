@@ -292,7 +292,7 @@ def main():
     if args.debug:
         model = "meta-llama/Llama-3.1-8B-Instruct"
         char  = "sex"
-        mode  = "stoprwords"
+        mode  = "stopwords"
         print(f"DEBUG: running single probe for {model} / {char} / {mode}")
         df = load_data(model, char)
         # DON’T suppress warnings here, so we’ll see the full traceback
