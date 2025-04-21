@@ -221,8 +221,11 @@ def probe(df, mode="content", max_features=200):
             'p_value': pvals[mask]
         })
     else:
-        # we use a different optimizer here due to "newton" will fail
-        sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='bfgs')
+        # we use a different optimizer here due to "newton" will fail on patron type
+        try:
+            sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='bfgs')
+        except:  # "bfgs" will fail on race/ethnicity
+            sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='newton')
         params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
         feat_const = ['const'] + list(feature_names)
         feats_exp, classes_exp = [], []
