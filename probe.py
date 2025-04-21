@@ -24,11 +24,8 @@ import argparse
 import json
 import os
 import string
-import warnings
-import argparse
-import traceback
 import sys
-
+import warnings
 
 import nltk
 import numpy as np
@@ -224,8 +221,6 @@ def probe(df, mode="content", max_features=200):
             'p_value': pvals[mask]
         })
     else:
-        # with warnings.catch_warnings():
-        #     warnings.simplefilter("ignore")
         sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='newton')
         params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
         feat_const = ['const'] + list(feature_names)
@@ -302,7 +297,7 @@ def main():
         sys.exit(0)
 
     else:
-        # --- normal mode: full sweep ---
+        # full exps
         model_names = [
             "meta-llama/Llama-3.1-8B-Instruct",
             "mistralai/Ministral-8B-Instruct-2410",
@@ -330,41 +325,6 @@ def main():
         with open("probe.json", "w") as f:
             json.dump(serialize_for_json(all_results), f, indent=2)
         print("\nAll experiments completed and results saved to 'probe.json'.")
-
-
-# def main():
-#     """
-#     Main driver for probing LLM outputs by demographic attributes.
-#     Loads data, runs probes for all model-characteristic-mode combinations,
-#     and serializes to probe.json.
-#     """
-#     model_names = [
-#         "meta-llama/Llama-3.1-8B-Instruct",
-#         "mistralai/Ministral-8B-Instruct-2410",
-#         "google/gemma-2-9b-it"
-#     ]
-#     characteristics = ["sex", "race_ethnicity", "patron_type"]
-#     modes = ["content", "stopwords"]
-#
-#     all_results = {}
-#     total = len(model_names) * len(characteristics) * len(modes)
-#     progress = tqdm(total=total, desc="Running probes")
-#
-#     for model in model_names:
-#         all_results[model] = {}
-#         for char in characteristics:
-#             df = load_data(model, char)
-#             all_results[model][char] = {}
-#             for mode in modes:
-#                 results = probe(df, mode=mode, max_features=200)
-#                 all_results[model][char][mode] = results
-#                 progress.update(1)
-#
-#     progress.close()
-#
-#     with open("probe.json", "w") as f:
-#         json.dump(serialize_for_json(all_results), f, indent=2)
-#     print("\nAll experiments completed and results saved to 'probe.json'.")
 
 
 if __name__ == "__main__":
