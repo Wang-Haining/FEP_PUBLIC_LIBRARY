@@ -404,7 +404,7 @@ def probe(
             "coef": p[mask],
             "p_value": pv[mask]
         })
-        else:
+    else:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             smm = sm.MNLogit(y, Xsub).fit(disp=False, method="newton")
