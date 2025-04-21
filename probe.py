@@ -515,18 +515,17 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        # --- debug mode: one quick test ---
-        model_name = "meta-llama/Llama-3.1-8B-Instruct"
+        # pick exactly one combination to sanity‐check
+        model = "meta-llama/Llama-3.1-8B-Instruct"
         characteristic = "patron_type"
         mode = "stopwords"
-
-        print(f"DEBUG: running single probe for {model_name} / {characteristic} / {mode}")
-        df = load_data(model_name, characteristic)
+        print(f"DEBUG: running single probe for {model} / {characteristic} / {mode}")
+        df = load_data(model, characteristic)
         results = probe(df, mode=mode, max_features=200)
-        stats_df = results["statsmodels"]
         print("\nDEBUG: statsmodels output:\n")
-        print(stats_df.to_string(index=False))
-        return
+        print(results["statsmodels"])
+        return   # bail out immediately
+
     else:
         # --- normal mode: full sweep ---
         model_names = [
