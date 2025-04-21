@@ -134,7 +134,7 @@ def probe(df, mode="content", max_features=150):
 
         vectorizer = TfidfVectorizer(
             tokenizer=ContentTokenizer(),
-            max_df=0.9,
+            # max_df=0.9,
             token_pattern=None,
             max_features=max_features
         )
@@ -297,7 +297,7 @@ def main():
         mode = "stopwords"
         print(f"DEBUG: running single probe for {model} / {char} / {mode}")
         df = load_data(model, char)
-        results = probe(df, mode=mode, max_features=100)
+        results = probe(df, mode=mode, max_features=120)
         print("\nDEBUG: full statsmodels output:\n")
         print(results["statsmodels"])
         sys.exit(0)
@@ -322,7 +322,7 @@ def main():
                 df = load_data(model, char)
                 all_results[model][char] = {}
                 for mode in modes:
-                    results = probe(df, mode=mode, max_features=100)
+                    results = probe(df, mode=mode, max_features=120)
                     all_results[model][char][mode] = results
                     progress.update(1)
 
