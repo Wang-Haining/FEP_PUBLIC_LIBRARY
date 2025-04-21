@@ -272,6 +272,11 @@ def serialize_for_json(results):
 
 
 def main():
+    """
+    Main driver for probing LLM outputs by demographic attributes.
+    Loads data, runs probes for all model-characteristic-mode combinations,
+    and serializes to probe.json.
+    """
     model_names = [
         "meta-llama/Llama-3.1-8B-Instruct",
         "mistralai/Ministral-8B-Instruct-2410",
