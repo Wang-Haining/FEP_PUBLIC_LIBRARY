@@ -134,7 +134,7 @@ def probe(df, mode="content", max_features=150):
 
         vectorizer = TfidfVectorizer(
             tokenizer=ContentTokenizer(),
-            max_df=0.95,
+            max_df=0.9,
             token_pattern=None,
             max_features=max_features
         )
