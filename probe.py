@@ -289,7 +289,7 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        model = "mistralai/Ministral-8B-Instruct-2410"
+        model = "google/gemma-2-9b-it"
         char  = "patron_type"
         mode  = "stopwords"
         print(f"DEBUG: running single probe for {model} / {char} / {mode}")
