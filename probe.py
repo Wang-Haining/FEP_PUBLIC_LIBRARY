@@ -244,7 +244,6 @@ def get_feature_weights(clf, feature_names, model_type):
 #
 #     return results
 
-
 def probe(df, mode="content", max_features=200, stats_top_k=100):
     """
     Unified probing function for content vs. stylistic cues.
@@ -264,9 +263,8 @@ def probe(df, mode="content", max_features=200, stats_top_k=100):
         }
       and "statsmodels": a DataFrame(feature, class, coef, p_value)
     """
-    # 1. tokenize
+    # 1. tokenize & vectorize
     if mode == "content":
-        # Exclude stopwords + honorifics from content
         class ContentTokenizer:
             def __init__(self):
                 stop = set(stopwords.words("english"))
@@ -274,39 +272,30 @@ def probe(df, mode="content", max_features=200, stats_top_k=100):
             def __call__(self, doc):
                 tokens = [w.strip(string.punctuation).lower() for w in doc.split()]
                 return [w for w in tokens if w and w not in self.exclusion]
-
-        vectorizer = TfidfVectorizer(
-            tokenizer=ContentTokenizer(),
-            token_pattern=None,
-            max_features=max_features
-        )
+        vectorizer = TfidfVectorizer(tokenizer=ContentTokenizer(),
+                                     token_pattern=None,
+                                     max_features=max_features)
         X = vectorizer.fit_transform(df["response"]).toarray()
-
-    else:  # stopwords mode
+    else:
         class StopwordTokenizer:
             def __init__(self):
                 self.stop = set(stopwords.words("english"))
             def __call__(self, doc):
                 tokens = [w.strip(string.punctuation).lower() for w in doc.split()]
                 return [w for w in tokens if w and w in self.stop]
-
-        vectorizer = CountVectorizer(
-            tokenizer=StopwordTokenizer(),
-            token_pattern=None,
-            max_features=max_features
-        )
+        vectorizer = CountVectorizer(tokenizer=StopwordTokenizer(),
+                                     token_pattern=None,
+                                     max_features=max_features)
         X = vectorizer.fit_transform(df["response"]).toarray()
         X = StandardScaler().fit_transform(X)
-
     feature_names = vectorizer.get_feature_names_out()
 
-    # 2. encode labels and prepare cross‑val splits by seed
-    le = LabelEncoder()
-    y = le.fit_transform(df["label"])
+    # 2. labels & CV splits by seed
+    y = LabelEncoder().fit_transform(df["label"])
     seeds = sorted(df["seed"].unique())
     splits = [(df["seed"] != s, df["seed"] == s) for s in seeds]
 
-    # 3. train classifiers and collect accuracies + feature weights
+    # 3. train and collect accuracies + weights
     def compute_ci(accs, confidence=0.95):
         mean = np.mean(accs)
         sem = np.std(accs, ddof=1) / np.sqrt(len(accs))
@@ -319,20 +308,19 @@ def probe(df, mode="content", max_features=200, stats_top_k=100):
         elif model_type == "mlp":
             w = clf.coefs_[0][:, 0]
         elif model_type == "xgboost":
-            booster = clf.get_booster()
-            imp = booster.get_score(importance_type="weight")
+            imp = clf.get_booster().get_score(importance_type="weight")
             return (pd.DataFrame.from_dict(imp, orient="index", columns=["weight"])
                     .rename_axis("feature").reset_index())
         else:
-            raise ValueError
+            raise ValueError(f"Unknown model type {model_type}")
         return pd.DataFrame({"feature": names, "weight": w})
 
     model_defs = {
         "logistic": lambda: LogisticRegression(
             C=1.0, solver="liblinear", penalty="l2", max_iter=1000, random_state=42),
         "mlp": lambda: MLPClassifier(
-            hidden_layer_sizes=(128,64), alpha=1e-4, max_iter=2000,
-            early_stopping=True, random_state=42),
+            hidden_layer_sizes=(128, 64), alpha=1e-4,
+            max_iter=2000, early_stopping=True, random_state=42),
         "xgboost": lambda: XGBClassifier(
             n_estimators=100, learning_rate=0.1,
             subsample=0.8, colsample_bytree=0.8,
@@ -349,12 +337,9 @@ def probe(df, mode="content", max_features=200, stats_top_k=100):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 clf.fit(X[train_idx], y[train_idx])
-            preds = clf.predict(X[test_idx])
-            accs.append(accuracy_score(y[test_idx], preds))
-            w = get_feature_weights(clf, feature_names, name)
-            wts.append(w)
+            accs.append(accuracy_score(y[test_idx], clf.predict(X[test_idx])))
+            wts.append(get_feature_weights(clf, feature_names, name))
         mean_acc, ci = compute_ci(accs)
-        # average weights across folds
         allw = pd.concat(wts).groupby("feature", as_index=False).mean()
         results[name] = {
             "mean_acc": mean_acc,
@@ -363,29 +348,28 @@ def probe(df, mode="content", max_features=200, stats_top_k=100):
         }
 
     # 4. statsmodels significance testing
-    # for high‑dim stopword dims, reduce to top stats_top_k by logistic weights
     X_const = sm.add_constant(X)
     n_classes = len(np.unique(y))
 
+    # reduce dims for stopwords if requested
     if mode == "stopwords":
-        # pick top features from logistic probe
         lw = results["logistic"]["feature_weights"].copy()
-        lw["abs_w"] = lw["weight"].abs()
-        chosen = lw.nlargest(stats_top_k, "abs_w")["feature"]
-        # build reduced matrix
-        feat_const = ["const"] + chosen.tolist()
-        idx = [0] + [list(feature_names).index(f)+1 for f in chosen]
+        chosen = lw.reindex(lw.weight.abs().sort_values(ascending=False).index
+                             ).head(stats_top_k)["feature"].tolist()
+        feat_const = ["const"] + chosen
+        # find columns: const is col0, features start at col1 in X_const
+        idx = [0] + [list(feature_names).index(f) + 1 for f in chosen]
         X_sub = X_const[:, idx]
     else:
         feat_const = ["const"] + list(feature_names)
         X_sub = X_const
 
-    # fit Logit or MNLogit
     if n_classes == 2:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             sm_mod = sm.Logit(y, X_sub).fit(disp=False, method="newton")
-        params, pvals = sm_mod.params, sm_mod.pvalues
+        params = np.asarray(sm_mod.params).flatten()
+        pvals  = np.asarray(sm_mod.pvalues).flatten()
         mask = ~np.isnan(params)
         stats_df = pd.DataFrame({
             "feature": [feat_const[i] for i in range(len(mask)) if mask[i]],
@@ -397,11 +381,11 @@ def probe(df, mode="content", max_features=200, stats_top_k=100):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             sm_mod = sm.MNLogit(y, X_sub).fit(disp=False, method="newton")
-        params = sm_mod.params.values.flatten()
-        pvals  = sm_mod.pvalues.values.flatten()
+        params = np.asarray(sm_mod.params).flatten()
+        pvals  = np.asarray(sm_mod.pvalues).flatten()
         feats, classes = [], []
         for i, feat in enumerate(feat_const):
-            for c in range(n_classes-1):
+            for c in range(n_classes - 1):
                 feats.append(feat)
                 classes.append(str(c))
         valid = ~np.isnan(params)
@@ -412,12 +396,13 @@ def probe(df, mode="content", max_features=200, stats_top_k=100):
             "p_value":pvals[valid]
         })
 
-    # drop constant and sort
-    stats_df = (stats_df[stats_df.feature!="const"]
-                .dropna(subset=["coef","p_value"])
+    # finalize
+    stats_df = (stats_df[stats_df.feature != "const"]
+                .dropna(subset=["coef", "p_value"])
                 .reset_index(drop=True))
-    stats_df = stats_df.loc[stats_df.coef.abs()
-                              .sort_values(ascending=False).index].reset_index(drop=True)
+    stats_df = stats_df.loc[
+        stats_df.coef.abs().sort_values(ascending=False).index
+    ].reset_index(drop=True)
 
     results["statsmodels"] = stats_df
     return results
