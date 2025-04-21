@@ -225,7 +225,8 @@ def probe(df, mode="content", max_features=200):
                 stats_df = pd.DataFrame(columns=['feature', 'class', 'coef', 'p_value'])
     else:
         # choose optimizer based on mode
-        optimizer = 'newton' if mode == "content" else 'bfgs'
+        # optimizer = 'newton' if mode == "content" else 'bfgs'
+        optimizer = 'powell'
         try:
             sm_model = sm.MNLogit(y, X_const).fit(disp=False, method=optimizer)
             try:
