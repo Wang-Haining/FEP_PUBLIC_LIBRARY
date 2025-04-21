@@ -222,7 +222,7 @@ def probe(df, mode="content", max_features=150):
     else:
         # with warnings.catch_warnings():
         #     warnings.simplefilter("ignore")
-        sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='newton')
+        sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='bfgs')
         params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
         feat_const = ['const'] + list(feature_names)
         feats_exp, classes_exp = [], []
