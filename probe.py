@@ -225,7 +225,7 @@ def probe(df, mode="content", max_features=200):
                 stats_df = pd.DataFrame(columns=['feature', 'class', 'coef', 'p_value'])
     else:
         try:
-            sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='bfgs')
+            sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='newton')
             try:
                 params = sm_model.params.flatten()
                 pvals = sm_model.pvalues.flatten()
