@@ -289,7 +289,7 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        model = "meta-llama/Llama-3.1-8B-Instruct"
+        model = "mistralai/Ministral-8B-Instruct-2410"
         char  = "patron_type"
         mode  = "stopwords"
         print(f"DEBUG: running single probe for {model} / {char} / {mode}")
