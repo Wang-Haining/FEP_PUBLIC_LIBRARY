@@ -303,9 +303,9 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        model = "meta-llama/Llama-3.1-8B-Instruct"
+        model = "google/gemma-2-9b-it"
         char  = "patron_type"
-        mode  = "stopwords"
+        mode  = "content"
         print(f"DEBUG: running single probe for {model} / {char} / {mode}")
         df = load_data(model, char)
         results = probe(df, mode=mode, max_features=200)
