@@ -123,9 +123,13 @@ def probe(df, mode="content", max_features=200):
     # tokenize & vectorize
     if mode == "content":
         class ContentTokenizer:
+            def __init__(self):
+                self.exclusion_set = set(stop_words_set).union({"mr", "ms", "mrs", "miss"})
+
             def __call__(self, doc):
                 tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
-                return [t for t in tokens if t and t not in stop_words_set]
+                return [t for t in tokens if t and t not in self.exclusion_set]
+
         vectorizer = TfidfVectorizer(
             tokenizer=ContentTokenizer(),
             token_pattern=None,
