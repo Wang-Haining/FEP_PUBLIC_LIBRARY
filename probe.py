@@ -20,6 +20,7 @@ The script performs 5-fold cross-validation using fixed random seeds, reporting:
 """
 
 
+import argparse
 import json
 import os
 import string
@@ -107,28 +108,172 @@ def get_feature_weights(clf, feature_names, model_type):
     }).sort_values(by="weight", ascending=False)
 
 
-def probe(df, mode="content", max_features=200):
-    """
-    Unified probing function for content vs stylistic cues.
-    Parameters:
-        - df: DataFrame with 'response', 'label', 'seed'
-        - mode: "content" or "stopwords"
-        - max_features: number of top features to use
-    Returns:
-        - Dictionary with model results and statsmodels output
-    """
-    assert mode in ["content", "stopwords"], "mode must be 'content' or 'stopwords'"
-    results = {}
+# def probe(df, mode="content", max_features=200):
+#     """
+#     Unified probing function for content vs stylistic cues.
+#     Parameters:
+#         - df: DataFrame with 'response', 'label', 'seed'
+#         - mode: "content" or "stopwords"
+#         - max_features: number of top features to use
+#     Returns:
+#         - Dictionary with model results and statsmodels output
+#     """
+#     assert mode in ["content", "stopwords"], "mode must be 'content' or 'stopwords'"
+#     results = {}
+#
+#     # tokenize & vectorize
+#     if mode == "content":
+#         class ContentTokenizer:
+#             def __init__(self):
+#                 self.exclusion_set = set(stop_words_set).union({"mr", "ms", "mrs", "miss"})
+#
+#             def __call__(self, doc):
+#                 tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
+#                 return [t for t in tokens if t and t not in self.exclusion_set]
+#
+#         vectorizer = TfidfVectorizer(
+#             tokenizer=ContentTokenizer(),
+#             token_pattern=None,
+#             max_features=max_features
+#         )
+#         X = vectorizer.fit_transform(df["response"]).toarray()
+#     else:
+#         class StopwordTokenizer:
+#             def __call__(self, doc):
+#                 tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
+#                 return [t for t in tokens if t in stop_words_set]
+#         vectorizer = CountVectorizer(
+#             tokenizer=StopwordTokenizer(),
+#             token_pattern=None,
+#             max_features=max_features
+#         )
+#         X = vectorizer.fit_transform(df["response"]).toarray()
+#         X = StandardScaler().fit_transform(X)
+#
+#     # prepare labels & splits
+#     le = LabelEncoder()
+#     y = le.fit_transform(df["label"])
+#     feature_names = vectorizer.get_feature_names_out()
+#     seeds = sorted(df["seed"].unique())
+#     splits = [(df["seed"] != s, df["seed"] == s) for s in seeds]
+#
+#     # model definitions
+#     model_defs = {
+#         "logistic": lambda: LogisticRegression(
+#             C=1.0, max_iter=1000, solver="liblinear", penalty="l2", random_state=42
+#         ),
+#         "mlp": lambda: MLPClassifier(
+#             hidden_layer_sizes=(128, 64), activation="relu", solver="adam",
+#             alpha=1e-4, max_iter=2000, early_stopping=True, random_state=42
+#         ),
+#         "xgboost": lambda: XGBClassifier(
+#             n_estimators=100, learning_rate=0.1, max_depth=4,
+#             subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0,
+#             use_label_encoder=False, eval_metric="logloss", verbosity=0, random_state=42
+#         )
+#     }
+#
+#     # train & collect results
+#     for name, constructor in model_defs.items():
+#         accs, weights = [], []
+#         for train_idx, test_idx in splits:
+#             clf = constructor()
+#             with warnings.catch_warnings():
+#                 warnings.simplefilter("ignore")
+#                 clf.fit(X[train_idx], y[train_idx])
+#             preds = clf.predict(X[test_idx])
+#             accs.append(accuracy_score(y[test_idx], preds))
+#             weights.append(get_feature_weights(clf, feature_names, name))
+#
+#         # aggregate accuracy and feature importance
+#         mean_acc, ci = compute_ci(accs)
+#         avg_weights = (
+#             pd.concat(weights)
+#               .groupby("feature")
+#               .mean()
+#               .reset_index()
+#               .sort_values("weight", ascending=False)
+#         )
+#
+#         # map XGBoost f# names back to tokens
+#         if name == "xgboost":
+#             mapping = {f"f{i}": feature_names[i] for i in range(len(feature_names))}
+#             avg_weights["feature"] = avg_weights["feature"].map(mapping)
+#
+#         results[name] = {"mean_acc": mean_acc, "ci": ci, "feature_weights": avg_weights}
+#
+#     # statsmodels analysis
+#     X_const = sm.add_constant(X)
+#     n_classes = len(np.unique(y))
+#
+#     if n_classes == 2:
+#         with warnings.catch_warnings():
+#             warnings.simplefilter("ignore")
+#             sm_model = sm.Logit(y, X_const).fit(disp=False, method='newton')
+#         params, pvals = sm_model.params, sm_model.pvalues
+#         feat_const = ['const'] + list(feature_names)
+#         mask = ~np.isnan(params)
+#         stats_df = pd.DataFrame({
+#             'feature': [feat_const[i] for i in range(len(mask)) if mask[i]],
+#             'class': '0',
+#             'coef': params[mask],
+#             'p_value': pvals[mask]
+#         })
+#     else:
+#         with warnings.catch_warnings():
+#             warnings.simplefilter("ignore")
+#             sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='newton')
+#         params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
+#         feat_const = ['const'] + list(feature_names)
+#         feats_exp, classes_exp = [], []
+#         for i, feat in enumerate(feat_const):
+#             for c in range(n_classes - 1):
+#                 feats_exp.append(feat)
+#                 classes_exp.append(str(c))
+#         valid = ~np.isnan(params)
+#         stats_df = pd.DataFrame({
+#             'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
+#             'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
+#             'coef': params[valid],
+#             'p_value': pvals[valid]
+#         })
+#
+#     stats_df = stats_df[stats_df.feature != 'const'].dropna(subset=['coef','p_value']).reset_index(drop=True)
+#     stats_df = stats_df.loc[stats_df['coef'].abs().sort_values(ascending=False).index].reset_index(drop=True)
+#     results["statsmodels"] = stats_df
+#
+#     return results
 
-    # tokenize & vectorize
+
+def probe(df, mode="content", max_features=200, stats_top_k=100):
+    """
+    Unified probing function for content vs. stylistic cues.
+
+    Parameters:
+    - df: DataFrame with columns ['response', 'label', 'seed']
+    - mode: "content" or "stopwords"
+    - max_features: maximum vocabulary size for vectorization
+    - stats_top_k: for stopwords mode, number of top features to include in statsmodels
+
+    Returns:
+    - results: dict with keys
+        "logistic", "mlp", "xgboost" each mapping to {
+            "mean_acc": float,
+            "ci": (lower, upper),
+            "feature_weights": DataFrame(feature, weight)
+        }
+      and "statsmodels": a DataFrame(feature, class, coef, p_value)
+    """
+    # 1. tokenize
     if mode == "content":
+        # Exclude stopwords + honorifics from content
         class ContentTokenizer:
             def __init__(self):
-                self.exclusion_set = set(stop_words_set).union({"mr", "ms", "mrs", "miss"})
-
+                stop = set(stopwords.words("english"))
+                self.exclusion = stop.union({"mr", "ms", "mrs", "miss"})
             def __call__(self, doc):
-                tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
-                return [t for t in tokens if t and t not in self.exclusion_set]
+                tokens = [w.strip(string.punctuation).lower() for w in doc.split()]
+                return [w for w in tokens if w and w not in self.exclusion]
 
         vectorizer = TfidfVectorizer(
             tokenizer=ContentTokenizer(),
@@ -136,11 +281,15 @@ def probe(df, mode="content", max_features=200):
             max_features=max_features
         )
         X = vectorizer.fit_transform(df["response"]).toarray()
-    else:
+
+    else:  # stopwords mode
         class StopwordTokenizer:
+            def __init__(self):
+                self.stop = set(stopwords.words("english"))
             def __call__(self, doc):
-                tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
-                return [t for t in tokens if t in stop_words_set]
+                tokens = [w.strip(string.punctuation).lower() for w in doc.split()]
+                return [w for w in tokens if w and w in self.stop]
+
         vectorizer = CountVectorizer(
             tokenizer=StopwordTokenizer(),
             token_pattern=None,
@@ -149,99 +298,130 @@ def probe(df, mode="content", max_features=200):
         X = vectorizer.fit_transform(df["response"]).toarray()
         X = StandardScaler().fit_transform(X)
 
-    # prepare labels & splits
+    feature_names = vectorizer.get_feature_names_out()
+
+    # 2. encode labels and prepare cross‑val splits by seed
     le = LabelEncoder()
     y = le.fit_transform(df["label"])
-    feature_names = vectorizer.get_feature_names_out()
     seeds = sorted(df["seed"].unique())
     splits = [(df["seed"] != s, df["seed"] == s) for s in seeds]
 
-    # model definitions
+    # 3. train classifiers and collect accuracies + feature weights
+    def compute_ci(accs, confidence=0.95):
+        mean = np.mean(accs)
+        sem = np.std(accs, ddof=1) / np.sqrt(len(accs))
+        h = sem * t.ppf((1 + confidence) / 2., len(accs) - 1)
+        return mean, (mean - h, mean + h)
+
+    def get_feature_weights(clf, names, model_type):
+        if model_type == "logistic":
+            w = clf.coef_[0]
+        elif model_type == "mlp":
+            w = clf.coefs_[0][:, 0]
+        elif model_type == "xgboost":
+            booster = clf.get_booster()
+            imp = booster.get_score(importance_type="weight")
+            return (pd.DataFrame.from_dict(imp, orient="index", columns=["weight"])
+                    .rename_axis("feature").reset_index())
+        else:
+            raise ValueError
+        return pd.DataFrame({"feature": names, "weight": w})
+
     model_defs = {
         "logistic": lambda: LogisticRegression(
-            C=1.0, max_iter=1000, solver="liblinear", penalty="l2", random_state=42
-        ),
+            C=1.0, solver="liblinear", penalty="l2", max_iter=1000, random_state=42),
         "mlp": lambda: MLPClassifier(
-            hidden_layer_sizes=(128, 64), activation="relu", solver="adam",
-            alpha=1e-4, max_iter=2000, early_stopping=True, random_state=42
-        ),
+            hidden_layer_sizes=(128,64), alpha=1e-4, max_iter=2000,
+            early_stopping=True, random_state=42),
         "xgboost": lambda: XGBClassifier(
-            n_estimators=100, learning_rate=0.1, max_depth=4,
-            subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0,
-            use_label_encoder=False, eval_metric="logloss", verbosity=0, random_state=42
-        )
+            n_estimators=100, learning_rate=0.1,
+            subsample=0.8, colsample_bytree=0.8,
+            reg_alpha=0.1, reg_lambda=1.0,
+            use_label_encoder=False, eval_metric="logloss",
+            max_depth=4, random_state=42)
     }
 
-    # train & collect results
-    for name, constructor in model_defs.items():
-        accs, weights = [], []
+    results = {}
+    for name, ctor in model_defs.items():
+        accs, wts = [], []
         for train_idx, test_idx in splits:
-            clf = constructor()
+            clf = ctor()
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 clf.fit(X[train_idx], y[train_idx])
             preds = clf.predict(X[test_idx])
             accs.append(accuracy_score(y[test_idx], preds))
-            weights.append(get_feature_weights(clf, feature_names, name))
-
-        # aggregate accuracy and feature importance
+            w = get_feature_weights(clf, feature_names, name)
+            wts.append(w)
         mean_acc, ci = compute_ci(accs)
-        avg_weights = (
-            pd.concat(weights)
-              .groupby("feature")
-              .mean()
-              .reset_index()
-              .sort_values("weight", ascending=False)
-        )
+        # average weights across folds
+        allw = pd.concat(wts).groupby("feature", as_index=False).mean()
+        results[name] = {
+            "mean_acc": mean_acc,
+            "ci": ci,
+            "feature_weights": allw.sort_values("weight", ascending=False)
+        }
 
-        # map XGBoost f# names back to tokens
-        if name == "xgboost":
-            mapping = {f"f{i}": feature_names[i] for i in range(len(feature_names))}
-            avg_weights["feature"] = avg_weights["feature"].map(mapping)
-
-        results[name] = {"mean_acc": mean_acc, "ci": ci, "feature_weights": avg_weights}
-
-    # statsmodels analysis
+    # 4. statsmodels significance testing
+    # for high‑dim stopword dims, reduce to top stats_top_k by logistic weights
     X_const = sm.add_constant(X)
     n_classes = len(np.unique(y))
 
+    if mode == "stopwords":
+        # pick top features from logistic probe
+        lw = results["logistic"]["feature_weights"].copy()
+        lw["abs_w"] = lw["weight"].abs()
+        chosen = lw.nlargest(stats_top_k, "abs_w")["feature"]
+        # build reduced matrix
+        feat_const = ["const"] + chosen.tolist()
+        idx = [0] + [list(feature_names).index(f)+1 for f in chosen]
+        X_sub = X_const[:, idx]
+    else:
+        feat_const = ["const"] + list(feature_names)
+        X_sub = X_const
+
+    # fit Logit or MNLogit
     if n_classes == 2:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            sm_model = sm.Logit(y, X_const).fit(disp=False, method='newton')
-        params, pvals = sm_model.params, sm_model.pvalues
-        feat_const = ['const'] + list(feature_names)
+            sm_mod = sm.Logit(y, X_sub).fit(disp=False, method="newton")
+        params, pvals = sm_mod.params, sm_mod.pvalues
         mask = ~np.isnan(params)
         stats_df = pd.DataFrame({
-            'feature': [feat_const[i] for i in range(len(mask)) if mask[i]],
-            'class': '0',
-            'coef': params[mask],
-            'p_value': pvals[mask]
+            "feature": [feat_const[i] for i in range(len(mask)) if mask[i]],
+            "class": "0",
+            "coef": params[mask],
+            "p_value": pvals[mask]
         })
     else:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='newton')
-        params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
-        feat_const = ['const'] + list(feature_names)
-        feats_exp, classes_exp = [], []
+            sm_mod = sm.MNLogit(y, X_sub).fit(disp=False, method="newton")
+        params = sm_mod.params.values.flatten()
+        pvals  = sm_mod.pvalues.values.flatten()
+        feats, classes = [], []
         for i, feat in enumerate(feat_const):
-            for c in range(n_classes - 1):
-                feats_exp.append(feat)
-                classes_exp.append(str(c))
+            for c in range(n_classes-1):
+                feats.append(feat)
+                classes.append(str(c))
         valid = ~np.isnan(params)
         stats_df = pd.DataFrame({
-            'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
-            'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
-            'coef': params[valid],
-            'p_value': pvals[valid]
+            "feature": [feats[i] for i in range(len(valid)) if valid[i]],
+            "class":  [classes[i] for i in range(len(valid)) if valid[i]],
+            "coef":   params[valid],
+            "p_value":pvals[valid]
         })
 
-    stats_df = stats_df[stats_df.feature != 'const'].dropna(subset=['coef','p_value']).reset_index(drop=True)
-    stats_df = stats_df.loc[stats_df['coef'].abs().sort_values(ascending=False).index].reset_index(drop=True)
-    results["statsmodels"] = stats_df
+    # drop constant and sort
+    stats_df = (stats_df[stats_df.feature!="const"]
+                .dropna(subset=["coef","p_value"])
+                .reset_index(drop=True))
+    stats_df = stats_df.loc[stats_df.coef.abs()
+                              .sort_values(ascending=False).index].reset_index(drop=True)
 
+    results["statsmodels"] = stats_df
     return results
+
 
 
 def print_top_features(results, top_n=10):
@@ -271,39 +451,95 @@ def serialize_for_json(results):
     return convert(results)
 
 
+# def main():
+#     """
+#     Main driver for probing LLM outputs by demographic attributes.
+#     Loads data, runs probes for all model-characteristic-mode combinations,
+#     and serializes to probe.json.
+#     """
+#     model_names = [
+#         "meta-llama/Llama-3.1-8B-Instruct",
+#         "mistralai/Ministral-8B-Instruct-2410",
+#         "google/gemma-2-9b-it"
+#     ]
+#     characteristics = ["sex", "race_ethnicity", "patron_type"]
+#     modes = ["content", "stopwords"]
+#
+#     all_results = {}
+#     total = len(model_names) * len(characteristics) * len(modes)
+#     progress = tqdm(total=total, desc="Running probes")
+#
+#     for model in model_names:
+#         all_results[model] = {}
+#         for char in characteristics:
+#             df = load_data(model, char)
+#             all_results[model][char] = {}
+#             for mode in modes:
+#                 results = probe(df, mode=mode, max_features=200)
+#                 all_results[model][char][mode] = results
+#                 progress.update(1)
+#
+#     progress.close()
+#
+#     with open("probe.json", "w") as f:
+#         json.dump(serialize_for_json(all_results), f, indent=2)
+#     print("\nAll experiments completed and results saved to 'probe.json'.")
+
 def main():
     """
     Main driver for probing LLM outputs by demographic attributes.
-    Loads data, runs probes for all model-characteristic-mode combinations,
-    and serializes to probe.json.
+    With --debug, only runs a single probe for quick inspection.
+    Otherwise, runs the full grid of models × characteristics × modes.
     """
-    model_names = [
-        "meta-llama/Llama-3.1-8B-Instruct",
-        "mistralai/Ministral-8B-Instruct-2410",
-        "google/gemma-2-9b-it"
-    ]
-    characteristics = ["sex", "race_ethnicity", "patron_type"]
-    modes = ["content", "stopwords"]
+    parser = argparse.ArgumentParser(description="Run attribute‐probing suite")
+    parser.add_argument(
+        "--debug", action="store_true",
+        help="only run Llama-3.1 patron_type stopwords probe and print statsmodels"
+    )
+    args = parser.parse_args()
 
-    all_results = {}
-    total = len(model_names) * len(characteristics) * len(modes)
-    progress = tqdm(total=total, desc="Running probes")
+    if args.debug:
+        # --- debug mode: one quick test ---
+        model_name = "meta-llama/Llama-3.1-8B-Instruct"
+        characteristic = "patron_type"
+        mode = "stopwords"
 
-    for model in model_names:
-        all_results[model] = {}
-        for char in characteristics:
-            df = load_data(model, char)
-            all_results[model][char] = {}
-            for mode in modes:
-                results = probe(df, mode=mode, max_features=200)
-                all_results[model][char][mode] = results
-                progress.update(1)
+        print(f"DEBUG: running single probe for {model_name} / {characteristic} / {mode}")
+        df = load_data(model_name, characteristic)
+        results = probe(df, mode=mode, max_features=200)
+        stats_df = results["statsmodels"]
+        print("\nDEBUG: statsmodels output:\n")
+        print(stats_df.to_string(index=False))
+        return
+    else:
+        # --- normal mode: full sweep ---
+        model_names = [
+            "meta-llama/Llama-3.1-8B-Instruct",
+            "mistralai/Ministral-8B-Instruct-2410",
+            "google/gemma-2-9b-it"
+        ]
+        characteristics = ["sex", "race_ethnicity", "patron_type"]
+        modes = ["content", "stopwords"]
 
-    progress.close()
+        all_results = {}
+        total = len(model_names) * len(characteristics) * len(modes)
+        progress = tqdm(total=total, desc="Running probes")
 
-    with open("probe.json", "w") as f:
-        json.dump(serialize_for_json(all_results), f, indent=2)
-    print("\nAll experiments completed and results saved to 'probe.json'.")
+        for model in model_names:
+            all_results[model] = {}
+            for char in characteristics:
+                df = load_data(model, char)
+                all_results[model][char] = {}
+                for mode in modes:
+                    results = probe(df, mode=mode, max_features=200)
+                    all_results[model][char][mode] = results
+                    progress.update(1)
+
+        progress.close()
+
+        with open("probe.json", "w") as f:
+            json.dump(serialize_for_json(all_results), f, indent=2)
+        print("\nAll experiments completed and results saved to 'probe.json'.")
 
 
 if __name__ == "__main__":
