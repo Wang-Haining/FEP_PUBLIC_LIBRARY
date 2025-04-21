@@ -180,9 +180,9 @@ def probe(df, mode="content", max_features=150):
         accs, weights = [], []
         for train_idx, test_idx in splits:
             clf = constructor()
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                clf.fit(X[train_idx], y[train_idx])
+            # with warnings.catch_warnings():
+            #     warnings.simplefilter("ignore")
+            clf.fit(X[train_idx], y[train_idx])
             preds = clf.predict(X[test_idx])
             accs.append(accuracy_score(y[test_idx], preds))
             weights.append(get_feature_weights(clf, feature_names, name))
@@ -207,9 +207,9 @@ def probe(df, mode="content", max_features=150):
     n_classes = len(np.unique(y))
 
     if n_classes == 2:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            sm_model = sm.Logit(y, X_const).fit(disp=False, method='newton')
+        # with warnings.catch_warnings():
+        #     warnings.simplefilter("ignore")
+        sm_model = sm.Logit(y, X_const).fit(disp=False, method='newton')
         params, pvals = sm_model.params, sm_model.pvalues
         feat_const = ['const'] + list(feature_names)
         mask = ~np.isnan(params)
@@ -220,9 +220,9 @@ def probe(df, mode="content", max_features=150):
             'p_value': pvals[mask]
         })
     else:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='newton')
+        # with warnings.catch_warnings():
+        #     warnings.simplefilter("ignore")
+        sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='newton')
         params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
         feat_const = ['const'] + list(feature_names)
         feats_exp, classes_exp = [], []
