@@ -248,7 +248,7 @@ def probe(
     df: pd.DataFrame,
     mode: str = "content",
     max_features: int = 200,
-    stats_top_k: int = 100
+    stats_top_k: int = 50
 ) -> dict:
     """
     Unified probing function for content vs. stylistic cues.
