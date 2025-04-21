@@ -134,6 +134,7 @@ def probe(df, mode="content", max_features=150):
 
         vectorizer = TfidfVectorizer(
             tokenizer=ContentTokenizer(),
+            max_df=0.95,
             token_pattern=None,
             max_features=max_features
         )
@@ -222,7 +223,7 @@ def probe(df, mode="content", max_features=150):
     else:
         # with warnings.catch_warnings():
         #     warnings.simplefilter("ignore")
-        sm_model = sm.MNLogit(y, X_const).fit(disp=True, maxiter=2000, method='bfgs')
+        sm_model = sm.MNLogit(y, X_const).fit(disp=True, maxiter=2000, method='lbfgs')
         params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
         feat_const = ['const'] + list(feature_names)
         feats_exp, classes_exp = [], []
