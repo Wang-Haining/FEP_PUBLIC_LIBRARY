@@ -209,7 +209,7 @@ def probe(df, mode="content", max_features=150):
     if n_classes == 2:
         # with warnings.catch_warnings():
         #     warnings.simplefilter("ignore")
-        sm_model = sm.Logit(y, X_const).fit(disp=True, method='newton')
+        sm_model = sm.Logit(y, X_const).fit(disp=True, maxiter=200, method='newton')
         params, pvals = sm_model.params, sm_model.pvalues
         feat_const = ['const'] + list(feature_names)
         mask = ~np.isnan(params)
