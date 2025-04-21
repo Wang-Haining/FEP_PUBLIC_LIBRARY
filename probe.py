@@ -286,11 +286,10 @@ def main():
 
     if args.debug:
         model = "meta-llama/Llama-3.1-8B-Instruct"
-        char  = "sex"
+        char  = "patron_type"
         mode  = "stopwords"
         print(f"DEBUG: running single probe for {model} / {char} / {mode}")
         df = load_data(model, char)
-        # DON’T suppress warnings here, so we’ll see the full traceback
         results = probe(df, mode=mode, max_features=200)
         print("\nDEBUG: full statsmodels output:\n")
         print(results["statsmodels"])
