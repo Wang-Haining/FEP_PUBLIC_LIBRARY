@@ -226,7 +226,7 @@ def probe(df, mode="content", max_features=200):
     else:
         # choose optimizer based on mode
         # optimizer = 'newton' if mode == "content" else 'bfgs'
-        optimizer = 'powell'
+        optimizer = 'newton'
         try:
             sm_model = sm.MNLogit(y, X_const).fit(disp=False, method=optimizer)
             try:
@@ -309,7 +309,7 @@ def main():
         mode  = "content"
         print(f"DEBUG: running single probe for {model} / {char} / {mode}")
         df = load_data(model, char)
-        results = probe(df, mode=mode, max_features=200)
+        results = probe(df, mode=mode, max_features=150)
         print("\nDEBUG: full statsmodels output:\n")
         print(results["statsmodels"])
         sys.exit(0)
