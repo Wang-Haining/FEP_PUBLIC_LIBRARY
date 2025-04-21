@@ -404,21 +404,22 @@ def probe(
             "coef": p[mask],
             "p_value": pv[mask]
         })
-    else:
+        else:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             smm = sm.MNLogit(y, Xsub).fit(disp=False, method="newton")
-        params = smm.params.values.flatten()
-        pvals  = smm.pvalues.values.flatten()
-        feats, cls = [], []
-        for i,f in enumerate(feat_list):
-            for c in range(n_cls - 1):
-                feats.append(f)
-                cls.append(str(c))
+        # smm.params is already an ndarray; drop .values
+        params = smm.params.flatten()
+        pvals  = smm.pvalues.flatten()
+        feats, classes = [], []
+        for i, feat in enumerate(feat_list):
+            for c in range(n_classes - 1):
+                feats.append(feat)
+                classes.append(str(c))
         valid = ~np.isnan(params)
         stats_df = pd.DataFrame({
             "feature": [feats[i] for i in range(len(valid)) if valid[i]],
-            "class":  [cls[i]   for i in range(len(valid)) if valid[i]],
+            "class":  [classes[i] for i in range(len(valid)) if valid[i]],
             "coef":   params[valid],
             "p_value":pvals[valid]
         })
