@@ -224,8 +224,10 @@ def probe(df, mode="content", max_features=200):
             except Exception:
                 stats_df = pd.DataFrame(columns=['feature', 'class', 'coef', 'p_value'])
     else:
+        # choose optimizer based on mode
+        optimizer = 'newton' if mode == "content" else 'bfgs'
         try:
-            sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='newton')
+            sm_model = sm.MNLogit(y, X_const).fit(disp=False, method=optimizer)
             try:
                 params = sm_model.params.flatten()
                 pvals = sm_model.pvalues.flatten()
