@@ -423,7 +423,6 @@ def probe(df, mode="content", max_features=200, stats_top_k=100):
     return results
 
 
-
 def print_top_features(results, top_n=10):
     for model in ["logistic", "mlp", "xgboost"]:
         if model in results:
