@@ -210,41 +210,44 @@ def probe(df, mode="content", max_features=200):
     if n_classes == 2:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            sm_model = sm.Logit(y, X_const).fit(disp=False, method='newton')
-        params, pvals = sm_model.params, sm_model.pvalues
-        feat_const = ['const'] + list(feature_names)
-        mask = ~np.isnan(params)
-        stats_df = pd.DataFrame({
-            'feature': [feat_const[i] for i in range(len(mask)) if mask[i]],
-            'class': '0',
-            'coef': params[mask],
-            'p_value': pvals[mask]
-        })
+            try:
+                sm_model = sm.Logit(y, X_const).fit(disp=False, method='newton')
+                params, pvals = sm_model.params, sm_model.pvalues
+                feat_const = ['const'] + list(feature_names)
+                mask = ~np.isnan(params)
+                stats_df = pd.DataFrame({
+                    'feature': [feat_const[i] for i in range(len(mask)) if mask[i]],
+                    'class': '0',
+                    'coef': params[mask],
+                    'p_value': pvals[mask]
+                })
+            except Exception:
+                stats_df = pd.DataFrame(columns=['feature', 'class', 'coef', 'p_value'])
     else:
-        # we use a different optimizer here due to "newton" will fail on patron type
-        # multi-class: catch any failure and use placeholder
         try:
             sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='bfgs')
+            try:
+                params = sm_model.params.flatten()
+                pvals = sm_model.pvalues.flatten()
+                feat_const = ['const'] + list(feature_names)
+                feats_exp, classes_exp = [], []
+                for i, feat in enumerate(feat_const):
+                    for c in range(n_classes - 1):
+                        feats_exp.append(feat)
+                        classes_exp.append(str(c))
+                valid = ~np.isnan(params)
+                stats_df = pd.DataFrame({
+                    'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
+                    'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
+                    'coef': params[valid],
+                    'p_value': pvals[valid]
+                })
+            except Exception:
+                stats_df = pd.DataFrame(columns=['feature', 'class', 'coef', 'p_value'])
         except Exception:
             stats_df = pd.DataFrame(columns=['feature', 'class', 'coef', 'p_value'])
-        else:
-            params = sm_model.params.flatten()
-            pvals = sm_model.pvalues.flatten()
-            feat_const = ['const'] + list(feature_names)
-            feats_exp, classes_exp = [], []
-            for i, feat in enumerate(feat_const):
-                for c in range(n_classes - 1):
-                    feats_exp.append(feat)
-                    classes_exp.append(str(c))
-            valid = ~np.isnan(params)
-            stats_df = pd.DataFrame({
-                'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
-                'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
-                'coef': params[valid],
-                'p_value': pvals[valid]
-            })
 
-        # finalize statsmodels output
+    # finalize statsmodels output
     if stats_df is not None:
         stats_df = stats_df[stats_df.feature != 'const']
         stats_df = stats_df.dropna(subset=['coef', 'p_value']).reset_index(drop=True)
