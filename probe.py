@@ -109,7 +109,7 @@ def get_feature_weights(clf, feature_names, model_type):
     }).sort_values(by="weight", ascending=False)
 
 
-def probe(df, mode="content", max_features=200):
+def probe(df, mode="content", max_features=150):
     """
     Unified probing function for content vs stylistic cues.
     Parameters:
@@ -143,6 +143,7 @@ def probe(df, mode="content", max_features=200):
             def __call__(self, doc):
                 tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
                 return [t for t in tokens if t in stop_words_set]
+
         vectorizer = CountVectorizer(
             tokenizer=StopwordTokenizer(),
             token_pattern=None,
@@ -186,7 +187,6 @@ def probe(df, mode="content", max_features=200):
             accs.append(accuracy_score(y[test_idx], preds))
             weights.append(get_feature_weights(clf, feature_names, name))
 
-        # aggregate accuracy and feature importance
         mean_acc, ci = compute_ci(accs)
         avg_weights = (
             pd.concat(weights)
@@ -196,7 +196,6 @@ def probe(df, mode="content", max_features=200):
               .sort_values("weight", ascending=False)
         )
 
-        # map XGBoost f# names back to tokens
         if name == "xgboost":
             mapping = {f"f{i}": feature_names[i] for i in range(len(feature_names))}
             avg_weights["feature"] = avg_weights["feature"].map(mapping)
@@ -210,57 +209,42 @@ def probe(df, mode="content", max_features=200):
     if n_classes == 2:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            try:
-                sm_model = sm.Logit(y, X_const).fit(disp=False, method='newton')
-                params, pvals = sm_model.params, sm_model.pvalues
-                feat_const = ['const'] + list(feature_names)
-                mask = ~np.isnan(params)
-                stats_df = pd.DataFrame({
-                    'feature': [feat_const[i] for i in range(len(mask)) if mask[i]],
-                    'class': '0',
-                    'coef': params[mask],
-                    'p_value': pvals[mask]
-                })
-            except Exception:
-                stats_df = pd.DataFrame(columns=['feature', 'class', 'coef', 'p_value'])
+            sm_model = sm.Logit(y, X_const).fit(disp=False, method='newton')
+        params, pvals = sm_model.params, sm_model.pvalues
+        feat_const = ['const'] + list(feature_names)
+        mask = ~np.isnan(params)
+        stats_df = pd.DataFrame({
+            'feature': [feat_const[i] for i in range(len(mask)) if mask[i]],
+            'class': '0',
+            'coef': params[mask],
+            'p_value': pvals[mask]
+        })
     else:
-        # choose optimizer based on mode
-        # optimizer = 'newton' if mode == "content" else 'bfgs'
-        optimizer = 'newton'
-        try:
-            sm_model = sm.MNLogit(y, X_const).fit(disp=False, method=optimizer)
-            try:
-                params = sm_model.params.flatten()
-                pvals = sm_model.pvalues.flatten()
-                feat_const = ['const'] + list(feature_names)
-                feats_exp, classes_exp = [], []
-                for i, feat in enumerate(feat_const):
-                    for c in range(n_classes - 1):
-                        feats_exp.append(feat)
-                        classes_exp.append(str(c))
-                valid = ~np.isnan(params)
-                stats_df = pd.DataFrame({
-                    'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
-                    'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
-                    'coef': params[valid],
-                    'p_value': pvals[valid]
-                })
-            except Exception:
-                stats_df = pd.DataFrame(columns=['feature', 'class', 'coef', 'p_value'])
-        except Exception:
-            stats_df = pd.DataFrame(columns=['feature', 'class', 'coef', 'p_value'])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sm_model = sm.MNLogit(y, X_const).fit(disp=False, method='newton')
+        params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
+        feat_const = ['const'] + list(feature_names)
+        feats_exp, classes_exp = [], []
+        for i, feat in enumerate(feat_const):
+            for c in range(n_classes - 1):
+                feats_exp.append(feat)
+                classes_exp.append(str(c))
+        valid = ~np.isnan(params)
+        stats_df = pd.DataFrame({
+            'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
+            'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
+            'coef': params[valid],
+            'p_value': pvals[valid]
+        })
 
-    # finalize statsmodels output
-    if stats_df is not None:
-        stats_df = stats_df[stats_df.feature != 'const']
-        stats_df = stats_df.dropna(subset=['coef', 'p_value']).reset_index(drop=True)
-        stats_df = stats_df.loc[stats_df['coef'].abs().sort_values(ascending=False).index].reset_index(drop=True)
-    else:
-        stats_df = pd.DataFrame(columns=['feature', 'class', 'coef', 'p_value'])
+    stats_df = stats_df[stats_df.feature != 'const']
+    stats_df = stats_df.dropna(subset=['coef', 'p_value']).reset_index(drop=True)
+    stats_df = stats_df.loc[stats_df['coef'].abs().sort_values(ascending=False).index].reset_index(drop=True)
 
-    results['statsmodels'] = stats_df if not stats_df.empty else []
-
+    results['statsmodels'] = stats_df
     return results
+
 
 
 def print_top_features(results, top_n=10):
@@ -305,8 +289,8 @@ def main():
 
     if args.debug:
         model = "google/gemma-2-9b-it"
-        char  = "patron_type"
-        mode  = "content"
+        char = "patron_type"
+        mode = "stopwords"
         print(f"DEBUG: running single probe for {model} / {char} / {mode}")
         df = load_data(model, char)
         results = probe(df, mode=mode, max_features=150)
@@ -334,7 +318,7 @@ def main():
                 df = load_data(model, char)
                 all_results[model][char] = {}
                 for mode in modes:
-                    results = probe(df, mode=mode, max_features=200)
+                    results = probe(df, mode=mode, max_features=150)
                     all_results[model][char][mode] = results
                     progress.update(1)
 
