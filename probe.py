@@ -438,6 +438,7 @@ def probe(
     ].reset_index(drop=True)
 
     results["statsmodels"] = stats_df
+    return results
 
 
 def print_top_features(results, top_n=10):
