@@ -375,68 +375,69 @@ def probe(
             "feature_weights": avg_w.sort_values("weight", ascending=False)
         }
 
-    # 4. statsmodels
-    X0 = sm.add_constant(X)
-    n_cls = len(np.unique(y))
+    # 4. statsmodels significance testing
+    X_const = sm.add_constant(X)
+    n_classes = len(np.unique(y))
 
+    # for stopwords mode, reduce dimensionality
     if mode == "stopwords":
-        # reduce to top-k by abs(logistic weight)
         lw = results["logistic"]["feature_weights"].copy()
         lw["abs_w"] = lw["weight"].abs()
-        top_feats = lw.nlargest(stats_top_k, "abs_w")["feature"].tolist()
-        feat_list = ["const"] + top_feats
-        idx = [0] + [list(feature_names).index(f)+1 for f in top_feats]
-        Xsub = X0[:, idx]
+        chosen = lw.nlargest(stats_top_k, "abs_w")["feature"].tolist()
+        feat_const = ["const"] + chosen
+        # build reduced matrix with only selected features
+        name_to_idx = {name: i+1 for i, name in enumerate(feature_names)}
+        idx = [0] + [name_to_idx[f] for f in chosen]
+        X_sub = X_const[:, idx]
     else:
-        feat_list = ["const"] + list(feature_names)
-        Xsub = X0
+        feat_const = ["const"] + list(feature_names)
+        X_sub = X_const
 
-    # binary vs. multi‑class
-    if n_cls == 2:
+    # now fit binary or multinomial logistic
+    if n_classes == 2:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            smm = sm.Logit(y, Xsub).fit(disp=False, method="newton")
-        p, pv = smm.params, smm.pvalues
-        mask = ~np.isnan(p)
+            sm_mod = sm.Logit(y, X_sub).fit(disp=False, method="newton")
+        params, pvals = sm_mod.params, sm_mod.pvalues
+        mask = ~np.isnan(params)
         stats_df = pd.DataFrame({
-            "feature": [feat_list[i] for i in range(len(mask)) if mask[i]],
-            "class": "0",
-            "coef": p[mask],
-            "p_value": pv[mask]
+            "feature": [feat_const[i] for i in range(len(mask)) if mask[i]],
+            "class":    ["0"] * mask.sum(),
+            "coef":     params[mask],
+            "p_value":  pvals[mask]
         })
     else:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            smm = sm.MNLogit(y, Xsub).fit(disp=False, method="newton")
-        # smm.params is already an ndarray; drop .values
-        params = smm.params.flatten()
-        pvals  = smm.pvalues.flatten()
+            sm_mod = sm.MNLogit(y, X_sub).fit(disp=False, method="newton")
+        # sm_mod.params and .pvalues are already ndarrays
+        params = sm_mod.params.flatten()
+        pvals  = sm_mod.pvalues.flatten()
         feats, classes = [], []
-        for i, feat in enumerate(feat_list):
+        # feature `i` appears for each of the (n_classes-1) logits
+        for i, feat in enumerate(feat_const):
             for c in range(n_classes - 1):
                 feats.append(feat)
                 classes.append(str(c))
         valid = ~np.isnan(params)
         stats_df = pd.DataFrame({
-            "feature": [feats[i] for i in range(len(valid)) if valid[i]],
-            "class":  [classes[i] for i in range(len(valid)) if valid[i]],
-            "coef":   params[valid],
-            "p_value":pvals[valid]
+            "feature":  [feats[i]   for i in range(len(valid)) if valid[i]],
+            "class":    [classes[i] for i in range(len(valid)) if valid[i]],
+            "coef":     params[valid],
+            "p_value":  pvals[valid]
         })
 
-    # clean up + sort
+    # drop constant, sort by absolute coefficient
     stats_df = (
-      stats_df[stats_df.feature != "const"]
-      .dropna(subset=["coef","p_value"])
-      .reset_index(drop=True)
+        stats_df[stats_df.feature != "const"]
+        .dropna(subset=["coef", "p_value"])
+        .reset_index(drop=True)
     )
     stats_df = stats_df.loc[
-      stats_df.coef.abs().sort_values(ascending=False).index
+        stats_df.coef.abs().sort_values(ascending=False).index
     ].reset_index(drop=True)
 
     results["statsmodels"] = stats_df
-    return results
-
 
 
 def print_top_features(results, top_n=10):
