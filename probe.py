@@ -161,8 +161,8 @@ def probe(df, mode="content", max_features=120, model_name=None):
 
     le = LabelEncoder()
     # enforce fixed label encoding for reproducible reference group assignments
-    if set(df["label"].unique()) == {"Female", "Male"}:
-        le.classes_ = np.array(["Female", "Male"])  # Female = 0
+    if set(df["label"].unique()) == {"F", "M"}:
+        le.classes_ = np.array(["F", "M"])  # Female = 0
     elif set(df["label"].unique()) == {
         "White",
         "Black or African American",
