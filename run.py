@@ -33,11 +33,11 @@ from transformers import AutoTokenizer
 from vllm import LLM, SamplingParams
 
 # constants
-FIXED_SEEDS  = [93187, 95617, 98473, 101089, 103387]
-QUERY_TYPES  = ['sports_team', 'population', 'subject']
+FIXED_SEEDS = [93187, 95617, 98473, 101089, 103387]
+QUERY_TYPES = ['sports_team', 'population', 'subject']
 PATRON_TYPES = ['Alumni', 'Faculty', 'Graduate student',
                 'Undergraduate student', 'Staff', 'Outside user']
-OUTPUT_DIR   = "outputs"; os.makedirs(OUTPUT_DIR, exist_ok=True)
+OUTPUT_DIR = "outputs"; os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # selected arl members
