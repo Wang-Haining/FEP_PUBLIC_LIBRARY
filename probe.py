@@ -205,7 +205,7 @@ def probe(df, mode="content", max_features=120, model_name=None):
             vectorizer_stats = TfidfVectorizer(
                 tokenizer=ContentTokenizer(),
                 token_pattern=None,
-                max_features=80
+                max_features=60
             )
             X_stats = vectorizer_stats.fit_transform(df["response"]).toarray()
             feature_names_stats = vectorizer_stats.get_feature_names_out()
