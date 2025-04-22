@@ -17,6 +17,13 @@ The script performs 5-fold cross-validation using fixed random seeds, reporting:
 - Statistical significance of features using statsmodels logistic regression
 - Volcano plots to visualize coefficient strength vs. p-value
 
+REFERENCE GROUP ENCODINGS (used by statsmodels for baseline class):
+- Sex:             Female (0), Male (1)
+- Race/Ethnicity:  White (0), Black or African American (1), Asian or Pacific Islander (2),
+                   American Indian or Alaska Native (3), Two or More Races (4), Hispanic or Latino (5)
+- Patron Type:     Undergraduate student (0), Graduate student (1), Faculty (2),
+                   Staff (3), Alumni (4), Outside user (5)
+
 """
 
 
@@ -153,6 +160,44 @@ def probe(df, mode="content", max_features=120, model_name=None):
         X = StandardScaler().fit_transform(X)
 
     le = LabelEncoder()
+    # enforce fixed label encoding for reproducible reference group assignments
+    if set(df["label"].unique()) == {"Female", "Male"}:
+        le.classes_ = np.array(["Female", "Male"])  # Female = 0
+    elif set(df["label"].unique()) == {
+        "White",
+        "Black or African American",
+        "Asian or Pacific Islander",
+        "American Indian or Alaska Native",
+        "Two or More Races",
+        "Hispanic or Latino"
+    }:
+        le.classes_ = np.array([
+            "White",                              # 0
+            "Black or African American",          # 1
+            "Asian or Pacific Islander",          # 2
+            "American Indian or Alaska Native",   # 3
+            "Two or More Races",                  # 4
+            "Hispanic or Latino"                  # 5
+        ])
+    elif set(df["label"].unique()) == {
+        "Undergraduate student",
+        "Faculty",
+        "Graduate student",
+        "Alumni",
+        "Staff",
+        "Outside user"
+    }:
+        le.classes_ = np.array([
+            "Undergraduate student",  # 0
+            "Graduate student",       # 1
+            "Faculty",                # 2
+            "Staff",                  # 3
+            "Alumni",                 # 4
+            "Outside user"            # 5
+        ])
+    else:
+        raise RuntimeError("Label mismatch: unexpected label set.")
+
     y = le.fit_transform(df["label"])
     feature_names = vectorizer.get_feature_names_out()
     seeds = sorted(df["seed"].unique())
