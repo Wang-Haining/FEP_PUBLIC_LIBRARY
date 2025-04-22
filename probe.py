@@ -196,7 +196,9 @@ def probe(df, mode="content", max_features=120, model_name=None):
             "Outside user"            # 5
         ])
     else:
-        raise RuntimeError("Label mismatch: unexpected label set.")
+        raise RuntimeError(
+            f"Label mismatch: unexpected label set encountered:\n{sorted(df['label'].unique())}"
+        )
 
     y = le.fit_transform(df["label"])
     feature_names = vectorizer.get_feature_names_out()
