@@ -109,32 +109,31 @@ def get_feature_weights(clf, feature_names, model_type):
     }).sort_values(by="weight", ascending=False)
 
 
-def probe(df, mode="content", max_features=150):
+def probe(df, mode="content", max_features=120, model_name=None):
     """
     Unified probing function for content vs stylistic cues.
     Parameters:
         - df: DataFrame with 'response', 'label', 'seed'
         - mode: "content" or "stopwords"
         - max_features: number of top features to use
+        - model_name: used to conditionally reduce max_features for statsmodels
     Returns:
         - Dictionary with model results and statsmodels output
     """
     assert mode in ["content", "stopwords"], "mode must be 'content' or 'stopwords'"
     results = {}
 
-    # tokenize & vectorize
+    # vectorize for classifier use
     if mode == "content":
         class ContentTokenizer:
             def __init__(self):
                 self.exclusion_set = {"mr", "ms", "mrs", "miss"}
-
             def __call__(self, doc):
                 tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
                 return [t for t in tokens if t and t not in self.exclusion_set]
 
         vectorizer = TfidfVectorizer(
             tokenizer=ContentTokenizer(),
-            # max_df=0.9,
             token_pattern=None,
             max_features=max_features
         )
@@ -153,14 +152,13 @@ def probe(df, mode="content", max_features=150):
         X = vectorizer.fit_transform(df["response"]).toarray()
         X = StandardScaler().fit_transform(X)
 
-    # prepare labels & splits
     le = LabelEncoder()
     y = le.fit_transform(df["label"])
     feature_names = vectorizer.get_feature_names_out()
     seeds = sorted(df["seed"].unique())
     splits = [(df["seed"] != s, df["seed"] == s) for s in seeds]
 
-    # model definitions
+    # classifiers
     model_defs = {
         "logistic": lambda: LogisticRegression(
             C=1.0, max_iter=1000, solver="liblinear", penalty="l2", random_state=42
@@ -176,7 +174,6 @@ def probe(df, mode="content", max_features=150):
         )
     }
 
-    # train & collect results
     for name, constructor in model_defs.items():
         accs, weights = [], []
         for train_idx, test_idx in splits:
@@ -201,15 +198,28 @@ def probe(df, mode="content", max_features=150):
 
         results[name] = {"mean_acc": mean_acc, "ci": ci, "feature_weights": avg_weights}
 
-    # statsmodels analysis
-    X_const = sm.add_constant(X)
-    n_classes = len(np.unique(y))
-
+    # statsmodels
     try:
+        # adjust feature size only for Gemma-2 content mode
+        if model_name and "gemma" in model_name.lower() and mode == "content":
+            vectorizer_stats = TfidfVectorizer(
+                tokenizer=ContentTokenizer(),
+                token_pattern=None,
+                max_features=80
+            )
+            X_stats = vectorizer_stats.fit_transform(df["response"]).toarray()
+            feature_names_stats = vectorizer_stats.get_feature_names_out()
+        else:
+            X_stats = X
+            feature_names_stats = feature_names
+
+        X_const = sm.add_constant(X_stats)
+        n_classes = len(np.unique(y))
+
         if n_classes == 2:
             sm_model = sm.Logit(y, X_const).fit(disp=True, maxiter=2000, method='newton')
             params, pvals = sm_model.params, sm_model.pvalues
-            feat_const = ['const'] + list(feature_names)
+            feat_const = ['const'] + list(feature_names_stats)
             mask = ~np.isnan(params)
             stats_df = pd.DataFrame({
                 'feature': [feat_const[i] for i in range(len(mask)) if mask[i]],
@@ -220,7 +230,7 @@ def probe(df, mode="content", max_features=150):
         else:
             sm_model = sm.MNLogit(y, X_const).fit(disp=True, maxiter=2000, method='lbfgs')
             params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
-            feat_const = ['const'] + list(feature_names)
+            feat_const = ['const'] + list(feature_names_stats)
             feats_exp, classes_exp = [], []
             for i, feat in enumerate(feat_const):
                 for c in range(n_classes - 1):
@@ -287,7 +297,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run attribute‐probing suite")
     parser.add_argument(
         "--debug", action="store_true",
-        help="only run Llama-3.1 sex/content probe and expose any errors"
+        help="only run Gemma-2 patron_type/stopwords probe and expose any errors"
     )
     args = parser.parse_args()
 
@@ -297,13 +307,12 @@ def main():
         mode = "stopwords"
         print(f"DEBUG: running single probe for {model} / {char} / {mode}")
         df = load_data(model, char)
-        results = probe(df, mode=mode, max_features=120)
+        results = probe(df, mode=mode, max_features=120, model_name=model)
         print("\nDEBUG: full statsmodels output:\n")
         print(results["statsmodels"])
         sys.exit(0)
 
     else:
-        # full exps
         model_names = [
             "meta-llama/Llama-3.1-8B-Instruct",
             "mistralai/Ministral-8B-Instruct-2410",
@@ -322,7 +331,7 @@ def main():
                 df = load_data(model, char)
                 all_results[model][char] = {}
                 for mode in modes:
-                    results = probe(df, mode=mode, max_features=120)
+                    results = probe(df, mode=mode, max_features=120, model_name=model)
                     all_results[model][char][mode] = results
                     progress.update(1)
 
