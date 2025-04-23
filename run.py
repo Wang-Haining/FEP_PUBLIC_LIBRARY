@@ -114,7 +114,6 @@ race_eth_labels = [
 # build the list of proportions
 surnames['race_prop'] = surnames[pct_cols].values.tolist()
 
-
 # load SSA baby names (first name × sex frequency)
 SSA_URL = (
     "https://raw.githubusercontent.com/Wang-Haining/"
@@ -189,7 +188,6 @@ def sample_name_sex_race_eth_generator(n):
             )
 
         yield first, last, sex, race_eth
-
 
 
 def build_messages(arl_member, patron_type, user_query, first, last):
