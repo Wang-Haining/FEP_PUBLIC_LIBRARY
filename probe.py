@@ -18,7 +18,7 @@ The script performs 5-fold cross-validation using fixed random seeds, reporting:
 - Volcano plots to visualize coefficient strength vs. p-value
 
 REFERENCE GROUP ENCODINGS (used by statsmodels for baseline class):
-- Sex:             Female (0), Male (1)
+- Sex:             F(0), M (1)
 - Race/Ethnicity:  White (0), Black or African American (1), Asian or Pacific Islander (2),
                    American Indian or Alaska Native (3), Two or More Races (4), Hispanic or Latino (5)
 - Patron Type:     Undergraduate student (0), Graduate student (1), Faculty (2),
@@ -116,14 +116,216 @@ def get_feature_weights(clf, feature_names, model_type):
     }).sort_values(by="weight", ascending=False)
 
 
+# def probe(df, mode="content", max_features=120, model_name=None):
+#     """
+#     Unified probing function for content vs stylistic cues.
+#     Parameters:
+#         - df: DataFrame with 'response', 'label', 'seed'
+#         - mode: "content" or "stopwords"
+#         - max_features: number of top features to use
+#         - model_name: used to conditionally reduce max_features for statsmodels
+#     Returns:
+#         - Dictionary with model results and statsmodels output
+#     """
+#     assert mode in ["content", "stopwords"], "mode must be 'content' or 'stopwords'"
+#     results = {}
+#
+#     # vectorize for classifier use
+#     if mode == "content":
+#         class ContentTokenizer:
+#             def __init__(self):
+#                 self.exclusion_set = set(stop_words_set).union({"mr", "ms", "mrs", "miss"})
+#             def __call__(self, doc):
+#                 tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
+#                 return [t for t in tokens if t and t not in self.exclusion_set]
+#
+#         vectorizer = TfidfVectorizer(
+#             tokenizer=ContentTokenizer(),
+#             token_pattern=None,
+#             max_features=max_features
+#         )
+#         X = vectorizer.fit_transform(df["response"]).toarray()
+#     else:
+#         class StopwordTokenizer:
+#             def __call__(self, doc):
+#                 tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
+#                 return [t for t in tokens if t in stop_words_set]
+#
+#         vectorizer = CountVectorizer(
+#             tokenizer=StopwordTokenizer(),
+#             token_pattern=None,
+#             max_features=max_features
+#         )
+#         X = vectorizer.fit_transform(df["response"]).toarray()
+#         X = StandardScaler().fit_transform(X)
+#
+#     le = LabelEncoder()
+#     # enforce fixed label encoding for reproducible reference group assignments
+#     if set(df["label"].unique()) == {"F", "M"}:
+#         le.classes_ = np.array(["F", "M"])  # Female = 0
+#     elif set(df["label"].unique()) == {
+#         "White",
+#         "Black or African American",
+#         "Asian or Pacific Islander",
+#         "American Indian or Alaska Native",
+#         "Two or More Races",
+#         "Hispanic or Latino"
+#     }:
+#         le.classes_ = np.array([
+#             "White",                              # 0
+#             "Black or African American",          # 1
+#             "Asian or Pacific Islander",          # 2
+#             "American Indian or Alaska Native",   # 3
+#             "Two or More Races",                  # 4
+#             "Hispanic or Latino"                  # 5
+#         ])
+#     elif set(df["label"].unique()) == {
+#         "Undergraduate student",
+#         "Faculty",
+#         "Graduate student",
+#         "Alumni",
+#         "Staff",
+#         "Outside user"
+#     }:
+#         le.classes_ = np.array([
+#             "Undergraduate student",  # 0
+#             "Graduate student",       # 1
+#             "Faculty",                # 2
+#             "Staff",                  # 3
+#             "Alumni",                 # 4
+#             "Outside user"            # 5
+#         ])
+#     else:
+#         raise RuntimeError(
+#             f"Label mismatch: unexpected label set encountered:\n{sorted(df['label'].unique())}"
+#         )
+#
+#     y = le.fit_transform(df["label"])
+#     feature_names = vectorizer.get_feature_names_out()
+#     seeds = sorted(df["seed"].unique())
+#     splits = [(df["seed"] != s, df["seed"] == s) for s in seeds]
+#
+#     # classifiers
+#     model_defs = {
+#         "logistic": lambda: LogisticRegression(
+#             C=1.0, max_iter=1000, solver="liblinear", penalty="l2", random_state=42
+#         ),
+#         "mlp": lambda: MLPClassifier(
+#             hidden_layer_sizes=(128, 64), activation="relu", solver="adam",
+#             alpha=1e-4, max_iter=2000, early_stopping=True, random_state=42
+#         ),
+#         "xgboost": lambda: XGBClassifier(
+#             n_estimators=100, learning_rate=0.1, max_depth=4,
+#             subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0,
+#             use_label_encoder=False, eval_metric="logloss", verbosity=0, random_state=42
+#         )
+#     }
+#
+#     for name, constructor in model_defs.items():
+#         accs, weights = [], []
+#         for train_idx, test_idx in splits:
+#             clf = constructor()
+#             clf.fit(X[train_idx], y[train_idx])
+#             preds = clf.predict(X[test_idx])
+#             accs.append(accuracy_score(y[test_idx], preds))
+#             weights.append(get_feature_weights(clf, feature_names, name))
+#
+#         mean_acc, ci = compute_ci(accs)
+#         avg_weights = (
+#             pd.concat(weights)
+#               .groupby("feature")
+#               .mean()
+#               .reset_index()
+#               .sort_values("weight", ascending=False)
+#         )
+#
+#         if name == "xgboost":
+#             mapping = {f"f{i}": feature_names[i] for i in range(len(feature_names))}
+#             avg_weights["feature"] = avg_weights["feature"].map(mapping)
+#
+#         results[name] = {"mean_acc": mean_acc, "ci": ci, "feature_weights": avg_weights}
+#
+#     # statsmodels
+#     try:
+#         # adjust feature size only for Gemma-2 content mode
+#         if model_name and "gemma" in model_name.lower() and mode == "content":
+#             vectorizer_stats = TfidfVectorizer(
+#                 tokenizer=ContentTokenizer(),
+#                 token_pattern=None,
+#                 max_features=60
+#             )
+#             X_stats = vectorizer_stats.fit_transform(df["response"]).toarray()
+#             feature_names_stats = vectorizer_stats.get_feature_names_out()
+#         else:
+#             X_stats = X
+#             feature_names_stats = feature_names
+#
+#         X_const = sm.add_constant(X_stats)
+#         n_classes = len(np.unique(y))
+#
+#         if n_classes == 2:
+#             sm_model = sm.Logit(y, X_const).fit(disp=True, maxiter=2000, method='lbfgs')
+#             params, pvals = sm_model.params, sm_model.pvalues
+#             feat_const = ['const'] + list(feature_names_stats)
+#             mask = ~np.isnan(params)
+#             stats_df = pd.DataFrame({
+#                 'feature': [feat_const[i] for i in range(len(mask)) if mask[i]],
+#                 'class': '0',
+#                 'coef': params[mask],
+#                 'p_value': pvals[mask]
+#             })
+#         else:
+#             sm_model = sm.MNLogit(y, X_const).fit(disp=True, maxiter=2000, method='lbfgs')
+#             params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
+#             feat_const = ['const'] + list(feature_names_stats)
+#             feats_exp, classes_exp = [], []
+#             for i, feat in enumerate(feat_const):
+#                 for c in range(n_classes - 1):
+#                     feats_exp.append(feat)
+#                     classes_exp.append(str(c))
+#             valid = ~np.isnan(params)
+#             stats_df = pd.DataFrame({
+#                 'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
+#                 'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
+#                 'coef': params[valid],
+#                 'p_value': pvals[valid]
+#             })
+#
+#         stats_df = stats_df[stats_df.feature != 'const']
+#         stats_df = stats_df.dropna(subset=['coef', 'p_value']).reset_index(drop=True)
+#         stats_df = stats_df.loc[stats_df['coef'].abs().sort_values(ascending=False).index].reset_index(drop=True)
+#         results['statsmodels'] = stats_df
+#
+#     except Exception as e:
+#         print(f"\n[Warning] statsmodels failed for {mode} mode with error:\n{e}\nReturning placeholder stats_df.")
+#         results['statsmodels'] = pd.DataFrame({
+#             'feature': [],
+#             'class': [],
+#             'coef': [],
+#             'p_value': []
+#         })
+#
+#     return results
+
+
 def probe(df, mode="content", max_features=120, model_name=None):
     """
     Unified probing function for content vs stylistic cues.
+
+    Reference groups for statsmodels:
+    - Sex: Female (class 0) as reference
+    - Race/Ethnicity: White (class 0) as reference
+    - Patron Type: Undergraduate student (class 0) as reference
+
+    Note: We place reference groups last in the encoding to work with statsmodels' behavior,
+    but maintain their conceptual position as class 0 in the output.
+
     Parameters:
         - df: DataFrame with 'response', 'label', 'seed'
         - mode: "content" or "stopwords"
         - max_features: number of top features to use
         - model_name: used to conditionally reduce max_features for statsmodels
+
     Returns:
         - Dictionary with model results and statsmodels output
     """
@@ -160,9 +362,10 @@ def probe(df, mode="content", max_features=120, model_name=None):
         X = StandardScaler().fit_transform(X)
 
     le = LabelEncoder()
-    # enforce fixed label encoding for reproducible reference group assignments
+    # put reference groups at the end for statsmodels
     if set(df["label"].unique()) == {"F", "M"}:
-        le.classes_ = np.array(["F", "M"])  # Female = 0
+        # move Female (reference) to the end
+        le.classes_ = np.array(["M", "F"])
     elif set(df["label"].unique()) == {
         "White",
         "Black or African American",
@@ -171,13 +374,14 @@ def probe(df, mode="content", max_features=120, model_name=None):
         "Two or More Races",
         "Hispanic or Latino"
     }:
+        # move White (reference) to the end
         le.classes_ = np.array([
-            "White",                              # 0
-            "Black or African American",          # 1
-            "Asian or Pacific Islander",          # 2
-            "American Indian or Alaska Native",   # 3
-            "Two or More Races",                  # 4
-            "Hispanic or Latino"                  # 5
+            "Black or African American",
+            "Asian or Pacific Islander",
+            "American Indian or Alaska Native",
+            "Two or More Races",
+            "Hispanic or Latino",
+            "White"
         ])
     elif set(df["label"].unique()) == {
         "Undergraduate student",
@@ -187,13 +391,14 @@ def probe(df, mode="content", max_features=120, model_name=None):
         "Staff",
         "Outside user"
     }:
+        # move undergraduate (reference) to the end
         le.classes_ = np.array([
-            "Undergraduate student",  # 0
-            "Graduate student",       # 1
-            "Faculty",                # 2
-            "Staff",                  # 3
-            "Alumni",                 # 4
-            "Outside user"            # 5
+            "Graduate student",
+            "Faculty",
+            "Staff",
+            "Alumni",
+            "Outside user",
+            "Undergraduate student"
         ])
     else:
         raise RuntimeError(
@@ -233,10 +438,10 @@ def probe(df, mode="content", max_features=120, model_name=None):
         mean_acc, ci = compute_ci(accs)
         avg_weights = (
             pd.concat(weights)
-              .groupby("feature")
-              .mean()
-              .reset_index()
-              .sort_values("weight", ascending=False)
+            .groupby("feature")
+            .mean()
+            .reset_index()
+            .sort_values("weight", ascending=False)
         )
 
         if name == "xgboost":
@@ -245,65 +450,98 @@ def probe(df, mode="content", max_features=120, model_name=None):
 
         results[name] = {"mean_acc": mean_acc, "ci": ci, "feature_weights": avg_weights}
 
-    # statsmodels
-    try:
-        # adjust feature size only for Gemma-2 content mode
-        if model_name and "gemma" in model_name.lower() and mode == "content":
-            vectorizer_stats = TfidfVectorizer(
-                tokenizer=ContentTokenizer(),
-                token_pattern=None,
-                max_features=60
-            )
-            X_stats = vectorizer_stats.fit_transform(df["response"]).toarray()
-            feature_names_stats = vectorizer_stats.get_feature_names_out()
-        else:
-            X_stats = X
-            feature_names_stats = feature_names
+    # statsmodels - with adjusted class labels to maintain conceptually clear
+    # adjust feature size only for Gemma-2 content mode
+    if model_name and "gemma" in model_name.lower() and mode == "content":
+        vectorizer_stats = TfidfVectorizer(
+            tokenizer=ContentTokenizer(),
+            token_pattern=None,
+            max_features=60
+        )
+        X_stats = vectorizer_stats.fit_transform(df["response"]).toarray()
+        feature_names_stats = vectorizer_stats.get_feature_names_out()
+    else:
+        X_stats = X
+        feature_names_stats = feature_names
 
-        X_const = sm.add_constant(X_stats)
-        n_classes = len(np.unique(y))
+    X_const = sm.add_constant(X_stats)
+    n_classes = len(np.unique(y))
 
-        if n_classes == 2:
-            sm_model = sm.Logit(y, X_const).fit(disp=True, maxiter=2000, method='lbfgs')
-            params, pvals = sm_model.params, sm_model.pvalues
-            feat_const = ['const'] + list(feature_names_stats)
-            mask = ~np.isnan(params)
-            stats_df = pd.DataFrame({
-                'feature': [feat_const[i] for i in range(len(mask)) if mask[i]],
-                'class': '0',
-                'coef': params[mask],
-                'p_value': pvals[mask]
-            })
-        else:
-            sm_model = sm.MNLogit(y, X_const).fit(disp=True, maxiter=2000, method='lbfgs')
-            params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
-            feat_const = ['const'] + list(feature_names_stats)
-            feats_exp, classes_exp = [], []
-            for i, feat in enumerate(feat_const):
-                for c in range(n_classes - 1):
-                    feats_exp.append(feat)
-                    classes_exp.append(str(c))
-            valid = ~np.isnan(params)
-            stats_df = pd.DataFrame({
-                'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
-                'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
-                'coef': params[valid],
-                'p_value': pvals[valid]
-            })
+    # create mapping from encoded indices to original concept indices
+    # for binary classification (sex)
+    if n_classes == 2:
+        sm_model = sm.Logit(y, X_const).fit(disp=0, maxiter=2000, method='lbfgs')
+        params, pvals = sm_model.params, sm_model.pvalues
+        feat_const = ['const'] + list(feature_names_stats)
+        mask = ~np.isnan(params)
 
-        stats_df = stats_df[stats_df.feature != 'const']
-        stats_df = stats_df.dropna(subset=['coef', 'p_value']).reset_index(drop=True)
-        stats_df = stats_df.loc[stats_df['coef'].abs().sort_values(ascending=False).index].reset_index(drop=True)
-        results['statsmodels'] = stats_df
-
-    except Exception as e:
-        print(f"\n[Warning] statsmodels failed for {mode} mode with error:\n{e}\nReturning placeholder stats_df.")
-        results['statsmodels'] = pd.DataFrame({
-            'feature': [],
-            'class': [],
-            'coef': [],
-            'p_value': []
+        # for sex: male is now encoded as 0, but conceptually it's class 1
+        stats_df = pd.DataFrame({
+            'feature': [feat_const[i] for i in range(len(mask)) if mask[i]],
+            'class': '1',  # male (conceptually class 1)
+            'coef': params[mask],
+            'p_value': pvals[mask]
         })
+    else:
+        sm_model = sm.MNLogit(y, X_const).fit(disp=0, maxiter=2000, method='lbfgs')
+        params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
+        feat_const = ['const'] + list(feature_names_stats)
+        feats_exp, classes_exp = [], []
+
+        # map encoded classes back to original concept classes
+        class_map = {}
+        if set(df["label"].unique()) == {
+            "White",
+            "Black or African American",
+            "Asian or Pacific Islander",
+            "American Indian or Alaska Native",
+            "Two or More Races",
+            "Hispanic or Latino"
+        }:
+            # race/ethnicity mapping
+            class_map = {
+                0: 1,  # Black → 1
+                1: 2,  # Asian → 2
+                2: 3,  # American Indian → 3
+                3: 4,  # Two or More → 4
+                4: 5   # Hispanic → 5
+            }
+        elif set(df["label"].unique()) == {
+            "Undergraduate student",
+            "Faculty",
+            "Graduate student",
+            "Alumni",
+            "Staff",
+            "Outside user"
+        }:
+            # patron type mapping
+            class_map = {
+                0: 1,  # Graduate → 1
+                1: 2,  # Faculty → 2
+                2: 3,  # Staff → 3
+                3: 4,  # Alumni → 4
+                4: 5   # Outside → 5
+            }
+
+        # build feature list with mapped classes
+        for i, feat in enumerate(feat_const):
+            for c in range(n_classes - 1):
+                feats_exp.append(feat)
+                original_class = class_map.get(c, c)  # map back to original concept class
+                classes_exp.append(str(original_class))
+
+        valid = ~np.isnan(params)
+        stats_df = pd.DataFrame({
+            'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
+            'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
+            'coef': params[valid],
+            'p_value': pvals[valid]
+        })
+
+    stats_df = stats_df[stats_df.feature != 'const']
+    stats_df = stats_df.dropna(subset=['coef', 'p_value']).reset_index(drop=True)
+    stats_df = stats_df.loc[stats_df['coef'].abs().sort_values(ascending=False).index].reset_index(drop=True)
+    results['statsmodels'] = stats_df
 
     return results
 
