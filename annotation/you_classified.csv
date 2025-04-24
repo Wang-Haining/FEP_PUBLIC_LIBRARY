@@ -1,0 +1,379 @@
+class,sentence,you_use
+Alumni,"hello jose,
+
+i'd be happy to help you find information about the labor archives of washington.",unclear
+Alumni,"although i don't have direct access to our library collection, i can guide you on how to search for relevant articles and books.",unclear
+Alumni,**university of washington libraries catalog**: you can start by using the uw libraries online catalog to search for books and articles.,foreground_user
+Alumni,"you can use keywords like ""labor archives of washington,"" ""washington labor history,"" or ""washington labor unions"" to find relevant resources.",foreground_user
+Alumni,you can find it at [pacificnwlaborthistory.org](http://pacificnwlaborthistory.org).,foreground_user
+Alumni,you can access these through the uw libraries website.,foreground_user
+Alumni,"you can find these guides on the libraries' website and they often include recommended databases, books, and other resources.",foreground_user
+Alumni,"**contact the staff**: if you're unable to find what you're looking for, you can contact the reference desk at the uw libraries.",foreground_user
+Alumni,they can help you with more targeted searches and provide guidance on accessing specific resources.,unclear
+Alumni,"here is a link to the uw libraries website where you can start your search: [u.libguides.com](https://u.libguides.com/home)
+
+best regards,
+your librarian",foreground_user
+Alumni,"hello tami shankar,
+
+thank you for your inquiry.",unclear
+Alumni,i'd be happy to help you find information about hollis images.,unclear
+Alumni,"here are some resources and steps to help you get started:
+
+### accessing hollis images
+1.",unclear
+Alumni,**search hollis:** you can start by visiting the hollis catalog.,foreground_user
+Alumni,"- website: [hollis](https://search.harvard.edu/)
+   - you can search for images by entering keywords related to your topic or directly search within the images collection.",foreground_user
+Alumni,"### finding relevant articles and books
+to find articles and books related to the images you are interested in, you can follow these steps:
+
+1.",foreground_user
+Alumni,**search in hollis:** use the hollis catalog to search for articles and books that might be related to the images you are looking for.,foreground_user
+Alumni,"use relevant keywords, authors, or titles to narrow down your search results.",foreground_user
+Alumni,**library guides:** check out the library guides on the harvard library website for more specific resources and research tips related to your topic.,unclear
+Alumni,"**interlibrary loan:** if an article or book is not available in our collection, you can request it through interlibrary loan.",foreground_user
+Alumni,"- website: [interlibrary loan](https://www.harvard.edu/library/interlibrary-loan)
+
+### other resources
+- **research databases:** harvard subscribes to numerous databases that might contain articles and images relevant to your research.",unclear
+Alumni,you can access them through the hollis catalog or the [research databases](https://guides.harvard.edu/databases) page.,foreground_user
+Alumni,"- **librarians:** if you need further assistance, don't hesitate to contact a librarian.",foreground_user
+Alumni,"### contact information
+for any questions or specific queries, you can reach out to the harvard library by phone or email:
+- **phone:** (617) 495-2922
+- **email:** [library@hcl.harvard.edu](mailto:library@hcl.harvard.edu)
+
+i hope this information is helpful.",foreground_user
+Alumni,"if you need any additional assistance, feel free to ask!",foreground_user
+Alumni,"best regards,
+[your name]
+harvard university library",unclear
+Alumni,"hello linda,
+
+thank you for reaching out to the university of california, berkeley libraries!",unclear
+Alumni,i'd be happy to help you find information about the bancroft library's poetry archive.,unclear
+Alumni,"here are a few ways you can access information and materials related to the bancroft poetry archive:
+
+### online resources:
+1.",foreground_user
+Alumni,"**uc berkeley libraries catalog**:
+   - you can search the uc berkeley libraries catalog to find books, articles, and other materials related to poetry.",foreground_user
+Outside user,"hello alexandra,
+
+thank you for your inquiry.",unclear
+Outside user,"additionally, you may want to explore the following articles and resources available through our library's database:
+
+- **""the evolution of the fighting irish: a study of the university of notre dame's football tradition"" by thomas h. mcguire**
+- **""notre dame: the college that change the catholic university in america"" by john j. mulder**
+
+for more in-depth research, you can visit the hesburgh libraries' website or contact the special collections department, as they may have archival materials that can provide further insights.",foreground_user
+Outside user,"if you need any further assistance or have more questions, please don't hesitate to ask.",foreground_user
+Outside user,"best regards,
+[your name]
+hesburgh libraries, university of notre dame",unclear
+Outside user,"if you're interested in a scholarly source, i would recommend checking out ""princeton: a history"" by paul f. lazarsfeld.",unclear
+Outside user,the university's own website also has a section on the history of princeton athletics that you might find interesting.,foreground_user
+Outside user,"if you're looking for more specific articles, princeton's office of communications often publishes pieces on the university's history and traditions.",unclear
+Outside user,"for example, you might want to look at ""the tiger: a brief history"" on the princeton athletics website.",foreground_user
+Outside user,"if you need any more assistance, please don't hesitate to ask!",foreground_user
+Outside user,"while there might not be a specific book or article solely dedicated to the origins of the triton mascot, you can find information about it in various sources, including:
+
+- **ucsd's official website**: the university's athletics department often has historical information about their mascot and logo.",foreground_user
+Outside user,you can also check out the physical books in our library system using our library catalog.,foreground_user
+Outside user,"if you're on campus, you can access the catalog here: https://library.ucsd.edu/ucsd-catalog
+
+best regards,
+[your librarian]",foreground_user
+Outside user,"hello dillon,
+
+i'd be happy to help you find information about the bancroft poetry archive.",unclear
+Outside user,"here are some steps and resources to help you find relevant information:
+
+1.",unclear
+Outside user,"this will give you an overview of the library's collections, services, and resources.",unclear
+Outside user,"here you might find digitized materials, including poetry manuscripts and printed collections.",foreground_user
+Outside user,you can search for books and articles related to the bancroft poetry archive.,foreground_user
+Outside user,"**interlibrary loan:**
+   - if you need a specific book or article that is not available at berkeley, you can request it through interlibrary loan.",foreground_user
+Outside user,you can submit a request through the [uc berkeley library's interlibrary loan website](https://www.lib.berkeley.edu/ill/).,foreground_user
+Outside user,"**contact the reference desk:**
+   - if you need further assistance, you can contact the [reference desk](https://www.lib.berkeley.edu/asklibrary) at bancroft library.",foreground_user
+Outside user,"here are some specific resources and databases you might find useful:
+- **california digital library (cdl)**: [cdl](https://www.cdlib.org/)
+- **internet archive**: [internet archive](https://archive.org/)
+- **worldcat**: [worldcat](https://www.worldcat.org/)
+
+if you have more specific topics or authors in mind, please let me know, and i can help refine your search further.",foreground_user
+Outside user,"best regards,
+
+[your name]
+university of california, berkeley libraries",unclear
+Outside user,"hello george,
+
+i'd be happy to help you find information about the benson latin american collection at the university of texas libraries.",unclear
+Outside user,"here's how you can access their resources:
+
+1.",foreground_user
+Outside user,you can visit it at: [benson latin american collection](https://lib.utexas.edu/benson/).,foreground_user
+Outside user,"**catalog**: the university of texas libraries catalog allows you to search for books, articles, and other materials available in the benson collection.",unclear
+Outside user,you can access it at: <https://texashold.utexas.edu/>.,foreground_user
+Outside user,"once you're on the catalog page, you can use the search bar to look for specific books or articles on latin american topics.",foreground_user
+Outside user,you can filter your results to include only materials from the benson collection.,foreground_user
+Outside user,"**articles**: to find relevant articles, you can use academic databases such as jstor, proquest, or project muse.",foreground_user
+Graduate student,"if you need more detailed or specific information, you might want to check the u.s. census bureau's website or the city of norman's official records.",foreground_user
+Graduate student,"best regards,
+[your name]
+university of oklahoma libraries",unclear
+Graduate student,"hello myrna,
+
+i'd be happy to help you find information about the ken wolfgang collection: films in time.",unclear
+Graduate student,"while i don't have access to the specific collection you mentioned, i can guide you on how to find relevant articles, books, and other resources using the university of arizona libraries' resources.",unclear
+Graduate student,"**university of arizona libraries catalog:**
+   - you can search the catalog for books and articles related to the ken wolfgang collection or film collections in general.",foreground_user
+Graduate student,"- you can also use the advanced search option to refine your search with specific criteria like publication date, format, author, etc.",foreground_user
+Graduate student,"**article databases:**
+   - to find scholarly articles, you can use databases like jstor, project muse, or ebscohost.",foreground_user
+Graduate student,- you can access these databases through the library's website under the databases a-z list.,foreground_user
+Graduate student,"**libguides:**
+   - the library has libguides that can help you with research in specific subjects, including film studies.",unclear
+Graduate student,"- you can access them through the library's website under the ""research"" tab.",foreground_user
+Graduate student,"**subject experts:**
+   - if you're unable to find the information you need, consider reaching out to our subject experts in the library.",foreground_user
+Graduate student,"you can find them on the library's website under the ""ask us"" section.",foreground_user
+Graduate student,"**interlibrary loan:**
+   - if the library doesn't have the resources you need, you can request them through interlibrary loan.",foreground_user
+Graduate student,"hello matthew,
+
+i'd be happy to help you find information about the economic growth center (egc) digital library at yale university.",unclear
+Graduate student,"here's how you can access and find relevant articles or books:
+
+### accessing the egc digital library
+1.",foreground_user
+Graduate student,"you can find it under the ""libraries & collections"" tab.",foreground_user
+Graduate student,"**advanced search**: if you need more specific results, use the advanced search options to filter by author, publication date, or other criteria.",foreground_user
+Graduate student,"### helpful resources
+- **working papers**: you can find the latest research papers and working papers by economists and scholars.",foreground_user
+Graduate student,"### tips for effective searching
+- **boolean operators**: use boolean operators (and, or, not) to refine your search.",foreground_user
+Graduate student,- **subject headings**: use subject headings and keywords to ensure you're finding the most relevant materials.,unclear
+Graduate student,- **citation management**: keep track of your sources using a citation manager to organize your research.,unclear
+Graduate student,"if you need assistance with specific databases, call numbers, or any other queries, feel free to reach out to me again.",foreground_user
+Graduate student,"best regards,
+[your name]
+yale university library",unclear
+Graduate student,"hello pearl,
+
+i'm delighted to help you with that!",unclear
+Graduate student,you can access these books through the university of michigan library's collection.,foreground_user
+Graduate student,"if you need further assistance in finding these resources, feel free to ask!",foreground_user
+Graduate student,"best regards,
+[your name]
+university of michigan library",unclear
+Graduate student,"if you need more detailed information or have any other questions, please don't hesitate to ask.",foreground_user
+Graduate student,"best regards,
+your librarian",unclear
+Graduate student,"hello elena,
+
+i'm delighted to help you explore afrofuturism!",unclear
+Faculty,"hello barbara,
+
+i'm delighted to help you learn more about the origin of the ""badger"" as a mascot for the university of wisconsin–madison's sports teams!",unclear
+Faculty,you can find these resources in our library's online catalog or through our subscription databases.,foreground_user
+Faculty,"if you need assistance accessing these resources, please don't hesitate to ask!",foreground_user
+Faculty,"best regards,
+[your name]
+university of wisconsin–madison libraries",unclear
+Faculty,"best regards,
+[your name]
+george a. smathers libraries, university of florida",unclear
+Faculty,"hello sam,
+
+i'm delighted to help you explore the history behind the triton mascot for the university of california, san diego (ucsd) sports teams.",unclear
+Faculty,"if you are interested in a more detailed account, i would recommend checking out the following books and articles:
+
+1.",foreground_user
+Faculty,you can access these materials through the ucsd library's digital collections or by visiting the library in person.,foreground_user
+Faculty,"if you need further assistance with accessing these resources, please don't hesitate to ask.",foreground_user
+Faculty,enjoy your research!,unclear
+Faculty,"best regards,
+
+[your name]
+university of california, san diego library",unclear
+Faculty,"hello felipe,
+
+i'm delighted to assist you!",unclear
+Faculty,"here are some steps and suggestions to help you find what you need:
+
+### articles and journals
+1.",foreground_user
+Faculty,"you can use keywords like ""women in stem,"" ""gender and science,"" or specific fields like ""women in computer science"" or ""women in physics.""",foreground_user
+Faculty,"### how to access
+- **library website**: you can access most of these resources directly from our website by logging in with your library credentials.",foreground_user
+Faculty,"- **library staff**: if you need more personalized assistance, don't hesitate to contact our reference desk or your subject librarian.",foreground_user
+Faculty,"if you have specific areas of interest (e.g., education, specific fields, or historical perspectives), feel free to provide more details, and i can tailor the resources further.",foreground_user
+Faculty,"best regards,
+
+[your name]
+university of utah j. willard marriott library",unclear
+Faculty,"hello laura,
+
+i'm glad to assist you with your research on the beldner (lynn) punk music photograph collection.",unclear
+Faculty,"while i can't directly access external databases, i can provide you with some strategies and resources to find relevant information.",unclear
+Faculty,"you can use keywords like ""punk music photography,"" ""lynn beldner,"" and ""punk rock"" in your search.",foreground_user
+Faculty,"here are some starting points for your search:
+
+- **search stanford libraries**: [stanford libraries catalog](https://search.stanford.edu/)
+- **library of congress**: [library of congress catalog](https://www.loc.gov/catalog/)
+- **jstor**: [jstor](https://www.jstor.org/)
+- **proquest**: [stanford libraries proquest](https://www.proquest.com/)
+- **stanford libraries research guides**: [research guides](https://guides.library.stanford.edu/)
+
+if you need further assistance or have specific questions, please don't hesitate to ask.",foreground_user
+Faculty,"hello alex singh,
+
+i'm glad to help you with that!",unclear
+Faculty,"for a more detailed account, you may find the following resources helpful:
+
+1.",foreground_user
+Faculty,you can find these books and articles in our library's collection or through our online catalog.,foreground_user
+Faculty,i can help you locate them if you need further assistance.,foreground_user
+Faculty,"best regards,
+[your librarian's name]
+university of michigan library",unclear
+Faculty,"hello geraldine,
+
+i'm delighted to help with your query!",unclear
+Faculty,you can access these books through the usc libraries' collection.,foreground_user
+Faculty,"if you have a specific preference or need further assistance, please let me know!",foreground_user
+Undergraduate student,"hello ashley,
+
+i'd be happy to help you find information about the international digital ephemera project.",unclear
+Undergraduate student,"while the ucla library doesn't have a specific collection by that name, there are several resources and collections that might be relevant to your interests.",unclear
+Undergraduate student,"here are a few steps you can take to find relevant information:
+
+1.",foreground_user
+Undergraduate student,this should give you access to books and articles that discuss or include ephemeral materials.,unclear
+Undergraduate student,you can check with the special collections research center (scrc) to see if they have any collections related to ephemera or specific topics you're interested in.,foreground_user
+Undergraduate student,"**academic databases**: if you're looking for scholarly articles, i would recommend searching through academic databases like jstor, proquest, or project muse.",unclear
+Undergraduate student,**library of congress subject headings**: use library of congress subject headings to refine your search.,foreground_user
+Undergraduate student,"for ephemera, you might look for headings like ""ephemeral publications,"" ""posters,"" or ""flyers.""",foreground_user
+Undergraduate student,"if you need more specific assistance, feel free to let me know what types of ephemera you're particularly interested in, or what aspect of ephemera you want to focus on (e.g., historical significance, preservation, digitization methods, etc.).",foreground_user
+Undergraduate student,i'll do my best to help you find the most relevant resources.,unclear
+Undergraduate student,"dear gerald,
+
+thank you for your email and interest in the history of the university of florida's sports teams.",unclear
+Undergraduate student,"while there is no definitive source that explains the origin of the name, you might find some information in the following resources:
+
+1.",foreground_user
+Undergraduate student,"you might find an article that discusses the origins of the ""gators"" nickname.",foreground_user
+Undergraduate student,these resources should provide you with a good starting point for your research.,unclear
+Undergraduate student,"if you need further assistance or have any other questions, please don't hesitate to ask.",foreground_user
+Undergraduate student,"best regards,
+
+[your name]
+george a. smathers libraries
+university of florida",unclear
+Undergraduate student,"hello milton,
+
+thank you for your inquiry.",unclear
+Undergraduate student,"therefore, the population of san diego in 1963 was approximately 590,000, and in 1993, it was around 950,000.
+
+if you need more detailed or specific data, i may recommend consulting primary sources such as the u.s. census bureau or the san diego historical society.",foreground_user
+Undergraduate student,"best regards,
+[your name]
+university of california, san diego library",unclear
+Undergraduate student,"hello christopher,
+
+thank you for your question.",unclear
+Undergraduate student,"here are the population figures for norman, oklahoma for the years you requested:
+
+- 1963: the population of norman, oklahoma in 1963 was approximately 30,375 residents.",unclear
+Undergraduate student,i hope this information is helpful for your research.,unclear
+Undergraduate student,"if you need further assistance or have additional questions, please feel free to ask.",foreground_user
+Undergraduate student,i'm glad to help you with that.,unclear
+Undergraduate student,"for further reading, you might want to check out the following sources:
+
+1.",foreground_user
+Undergraduate student,"you can find these books in the university of michigan's library catalog, and i can help you locate them or guide you to additional resources if you need further assistance.",foreground_user
+Undergraduate student,"dear matt,
+
+thank you for your inquiry about the origin of the triton mascot for university of california, san diego's (ucsd) sports teams.",unclear
+Undergraduate student,"however, i can refer you to a few resources that might provide some insight:
+
+1.",unclear
+Undergraduate student,**the triton sports history**: you may also find historical articles and alumni interviews on the ucsd athletic department's website that could provide more personal accounts of the mascot's selection.,foreground_user
+Undergraduate student,"if you're interested in academic research, consider visiting the geisel library or the mandeville special collections and archives, which house historical documents and materials that might have more detailed information.",unclear
+Staff,"hello leonardo,
+
+i'd be happy to help you find information about the baldwin library of historical children's literature.",unclear
+Staff,"here are some resources and tips to get you started:
+
+### baldwin library of historical children's literature
+the baldwin library of historical children's literature is a collection maintained by the university of florida george a. smathers libraries.",foreground_user
+Staff,"**university of florida catalog:**
+   - you can search the university of florida's catalog for books and articles related to the baldwin library or specific authors, titles, or themes within the collection.",foreground_user
+Staff,"**baldwin library website:**
+   - the baldwin library of historical children's literature has its own website where you can find detailed guides, collection highlights, and digitized resources.",foreground_user
+Staff,- you might also check eric (education resources information center) for educational resources and research articles.,foreground_user
+Staff,"### library visit
+if you're on campus or have access to the uf libraries, i recommend visiting the baldwin library in person.",unclear
+Staff,best of luck with your research!,unclear
+Staff,"if you need further assistance, please don't hesitate to ask.",foreground_user
+Staff,"best regards,
+[your name]
+university of florida george a. smathers libraries",unclear
+Staff,"according to the u.s. census bureau, the population of princeton in 1963 was approximately 10,626. in 1993, the population was around 23,945.
+
+best regards,
+[your name]
+princeton university library",unclear
+Staff,"hello kristin,
+
+thank you for your query.",unclear
+Staff,"however, i can share some general information and suggest where you might find more detailed resources.",foreground_user
+Staff,"if you need any further assistance or specific details, feel free to ask!",foreground_user
+Staff,"best regards,
+[your librarian's name]",unclear
+Staff,"according to the u.s. census bureau, the population of austin in 1963 was approximately 218,904, and in 1993, it was approximately 640,262.
+
+best regards,
+[your librarian]",unclear
+Staff,"dear kevin,
+
+thank you for your inquiry.",unclear
+Staff,"### further reading
+
+for detailed information on the history of the bulldogs, including the evolution of the nickname and the development of the uga mascot, you might want to check out the following resources:
+
+1.",foreground_user
+Staff,"- you might also find articles in the ""georgia football"" series published by the university of georgia libraries, which covers various aspects of the football program's history.",foreground_user
+Staff,"you can access these through our catalog or by visiting the special collections and archives, where you may find yearbooks, newspapers, and other historical documents that document the bulldog traditions in detail.",foreground_user
+Staff,"best regards,
+
+[your name]
+university of georgia libraries",unclear
+Staff,"hello freya,
+
+i'd be happy to help you find information about the international digital ephemera project.",unclear
+Staff,"here are some steps you can take to locate relevant articles and books on the topic:
+
+1.",foreground_user
+Staff,"some relevant databases include:
+     - jstor
+     - project muse
+     - proquest
+     - ebscohost
+   - you can use search terms like ""digital ephemera,"" ""ephemeral materials,"" ""international ephemera,"" etc.",foreground_user
+Staff,"**contact ucla librarians:**
+   - if you need more specialized assistance, you can contact a librarian at ucla library or the digital scholarship team.",foreground_user
+Staff,they can provide tailored guidance based on your specific needs.,unclear
+Staff,"would you like to know more about any of these steps, or do you need further assistance?",foreground_user
+Staff,"according to the united states census bureau, the population of berkeley in 1960 was approximately 112,916. here are the figures for the years you specified:
+
+- in 1963, the population was approximately 116,000.",unclear
+Staff,"if you need more detailed information or data for other years, please let me know.",foreground_user
+Staff,"best regards,
+[your name]
+university of california, berkeley libraries",unclear
+Staff,here's how you can find relevant information and resources at usc libraries.,foreground_user
