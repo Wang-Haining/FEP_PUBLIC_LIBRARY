@@ -22,6 +22,7 @@ user attributes such as **sex, race/ethnicity, and patron type**.
 ## 🚀 How to Run
 
 1. Install dependencies
+
 ```bash
 python3.10 -m venv .venv
 source .venv/bin/activate
@@ -29,6 +30,7 @@ python -m pip install -r requirements.txt
 ```
 
 2. Run the probing script
+
 ```bash
 python probe.py
 ```
