@@ -1,4 +1,4 @@
-# Evaluating LLM Fairness in Library Reference Services ⚖
+# Fairness Evaluation of Large Language Models in Library Reference Services ⚖
 
 This repository supports the paper **Fairness Evaluation of Large Language Models in Library Reference Services ⚖**.
 Our projects presents an explainable diagnostic framework for auditing the fairness of large language models (LLMs) in 
