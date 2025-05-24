@@ -455,7 +455,7 @@ def safely_apply_chat_template(tokenizer, messages, add_generation_prompt=True):
             print(f"[Warning] Chat template error: {e}")
             print(f"[Warning] Attempting to format without system role")
 
-            # Extract system message content if it exists
+            # extract system message content if it exists
             system_content = None
             user_messages = []
             for msg in messages:
@@ -693,7 +693,9 @@ if __name__ == "__main__":
                 )
 
                 response = safe_gemini_completion(
-                    client, combined_prompt, generation_config=generation_config
+                    client,
+                    prompt=combined_prompt,
+                    generation_config=generation_config
                 )
                 text = response.text.strip()
 
