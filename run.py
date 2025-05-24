@@ -14,6 +14,9 @@ Prompts and model responses are saved to JSON files, stratified by random seed.
 
 Example usage:
 python run.py --model_name meta-llama/Meta-Llama-3.1-8B-Instruct
+python run.py --model_name gpt-4o
+python run.py --model_name claude-3-5-sonnet-20241022
+python run.py --model_name gemini-2.0-flash-exp
 """
 
 import argparse
@@ -24,6 +27,8 @@ import random
 import time
 import zipfile
 
+import anthropic
+import google.generativeai as genai
 import numpy as np
 import openai
 import pandas as pd
@@ -37,7 +42,7 @@ FIXED_SEEDS = [93187, 95617, 98473, 101089, 103387]
 QUERY_TYPES = ['sports_team', 'population', 'subject']
 PATRON_TYPES = ['Alumni', 'Faculty', 'Graduate student',
                 'Undergraduate student', 'Staff', 'Outside user']
-OUTPUT_DIR = "outputs"; os.makedirs(OUTPUT_DIR, exist_ok=True)
+OUTPUT_DIR = "outputs"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # selected arl members
@@ -202,17 +207,34 @@ def build_messages(arl_member, patron_type, user_query, first, last):
     return system_prompt, user_content
 
 
-def safe_chat_completion(**kwargs):
+def safe_api_call(api_func, **kwargs):
+    """Generic retry wrapper for API calls"""
     for attempt in range(5):
         try:
-            return openai.ChatCompletion.create(**kwargs)
-        except openai.error.RateLimitError:
-            print(f"Rate limited. Sleeping for {2 ** attempt} seconds...")
-            time.sleep(2 ** attempt)
-        except openai.error.OpenAIError as e:
-            print(f"OpenAI API error: {e}")
-            time.sleep(2)
-    raise RuntimeError("Repeated OpenAI API errors.")
+            return api_func(**kwargs)
+        except Exception as e:
+            if "rate" in str(e).lower() or "limit" in str(e).lower():
+                print(f"Rate limited. Sleeping for {2 ** attempt} seconds...")
+                time.sleep(2 ** attempt)
+            else:
+                print(f"API error: {e}")
+                time.sleep(2)
+    raise RuntimeError("Repeated API errors.")
+
+
+def safe_chat_completion(**kwargs):
+    """Backward compatibility wrapper for OpenAI"""
+    return safe_api_call(openai.ChatCompletion.create, **kwargs)
+
+
+def safe_claude_completion(client, **kwargs):
+    """Wrapper for Claude API calls"""
+    return safe_api_call(client.messages.create, **kwargs)
+
+
+def safe_gemini_completion(model, **kwargs):
+    """Wrapper for Gemini API calls"""
+    return safe_api_call(model.generate_content, **kwargs)
 
 
 def template_supports_system(tokenizer) -> bool:
@@ -280,11 +302,11 @@ def safely_apply_chat_template(tokenizer, messages, add_generation_prompt=True):
                     user_messages, tokenize=False, add_generation_prompt=add_generation_prompt
                 )
 
-        # For other errors, or if our workarounds failed, fall back to a simple format
+        # for other errors, or if our workarounds failed, fall back to a simple format
         print(f"[Warning] Could not apply chat template: {e}")
         print(f"[Warning] Falling back to simple format")
 
-        # Simple concatenation fallback
+        # simple concatenation fallback
         formatted_messages = []
         for msg in messages:
             role = msg["role"].upper()
@@ -298,6 +320,36 @@ def safely_apply_chat_template(tokenizer, messages, add_generation_prompt=True):
         return prompt
 
 
+def get_api_client(model_name):
+    """Initialize appropriate API client based on model name"""
+    if "gpt" in model_name.lower():
+        # OpenAI client initialization
+        if not openai.api_key:
+            openai.api_key = os.getenv("OPENAI_API_KEY")
+            if not openai.api_key:
+                raise ValueError("OPENAI_API_KEY environment variable not set")
+        return "openai", None
+
+    elif "claude" in model_name.lower():
+        # Claude client initialization
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable not set")
+        return "claude", anthropic.Anthropic(api_key=api_key)
+
+    elif model_name.startswith("gemini-"):
+        # Gemini client initialization
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY environment variable not set")
+        genai.configure(api_key=api_key)
+        return "gemini", genai.GenerativeModel(model_name)
+
+    else:
+        # assume it's a HuggingFace model for vLLM by default
+        return "vllm", None
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Run demographic bias experiments for LLM-powered library reference services."
@@ -308,8 +360,11 @@ if __name__ == '__main__':
     parser.add_argument('--max_tokens', type=int, default=4096)
     args = parser.parse_args()
 
-    is_openai = args.model_name.startswith("gpt-")
-    if not is_openai:
+    # determine model type and initialize appropriate client
+    model_type, client = get_api_client(args.model_name)
+
+    # initialize vLLM if needed
+    if model_type == "vllm":
         llm = LLM(model=args.model_name, trust_remote_code=True, dtype="bfloat16")
         tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
         supports_system = template_supports_system(tokenizer)
@@ -335,8 +390,8 @@ if __name__ == '__main__':
         for i, (first, last, sex, race_eth) in enumerate(
                 tqdm(sample_name_sex_race_eth_generator(args.num_runs), desc=f"Seed {seed}")
         ):
-            patron     = random.choice(PATRON_TYPES)
-            arl        = random.choice(ARL_MEMBERS)
+            patron = random.choice(PATRON_TYPES)
+            arl = random.choice(ARL_MEMBERS)
             query_type = random.choice(QUERY_TYPES)
 
             # build the specific user_query
@@ -364,7 +419,8 @@ if __name__ == '__main__':
                 last=last
             )
 
-            if is_openai:
+            # process based on model type
+            if model_type == "openai":
                 messages = [
                     {"role": "system", "content": system_prompt},
                     {"role": "user",   "content": user_content}
@@ -380,7 +436,43 @@ if __name__ == '__main__':
                     presence_penalty=0.0
                 )
                 text = response.choices[0].message["content"].strip()
-            else:
+
+            elif model_type == "claude":
+                # Claude uses a different message format
+                messages = [
+                    {"role": "user", "content": user_content}
+                ]
+                # for logging
+                prompt = f"SYSTEM: {system_prompt}\n\nUSER: {user_content}"
+                response = safe_claude_completion(
+                    client,
+                    model=args.model_name,
+                    system=system_prompt,
+                    messages=messages,
+                    temperature=args.temperature,
+                    max_tokens=args.max_tokens
+                )
+                text = response.content[0].text.strip()
+
+            elif model_type == "gemini":
+                # Gemini uses a combined prompt format
+                combined_prompt = f"{system_prompt}\n\n{user_content}"
+                prompt = f"SYSTEM: {system_prompt}\n\nUSER: {user_content}"
+
+                # configure generation settings for Gemini
+                generation_config = genai.types.GenerationConfig(
+                    temperature=args.temperature,
+                    max_output_tokens=args.max_tokens,
+                )
+
+                response = safe_gemini_completion(
+                    client,
+                    combined_prompt,
+                    generation_config=generation_config
+                )
+                text = response.text.strip()
+
+            else:  # vllm
                 messages = [
                     {"role": "system", "content": system_prompt},
                     {"role": "user",   "content": user_content}
