@@ -516,7 +516,7 @@ def safely_apply_chat_template(tokenizer, messages, add_generation_prompt=True):
 
 def get_api_client(model_name):
     """Initialize appropriate API client based on model name"""
-    # Normalize model name to lowercase for comparison
+    # normalize model name to lowercase for comparison
     model_lower = model_name.lower()
 
     if "gpt" in model_lower:
