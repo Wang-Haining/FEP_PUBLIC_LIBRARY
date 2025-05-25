@@ -422,9 +422,10 @@ def safe_claude_completion(client, **kwargs):
     return safe_api_call(client.messages.create, **kwargs)
 
 
-def safe_gemini_completion(model, **kwargs):
+def safe_gemini_completion(model, prompt, **kwargs):
     """Wrapper for Gemini API calls"""
-    return safe_api_call(model.generate_content, **kwargs)
+    # Gemini expects the prompt as the first positional argument
+    return safe_api_call(lambda **kw: model.generate_content(prompt, **kw), **kwargs)
 
 
 def template_supports_system(tokenizer) -> bool:
