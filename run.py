@@ -36,6 +36,7 @@ import numpy as np
 import openai
 import pandas as pd
 import requests
+from openai import OpenAI
 from tqdm import tqdm
 from transformers import AutoTokenizer
 from vllm import LLM, SamplingParams
@@ -397,24 +398,28 @@ def build_messages(arl_member, patron_type, user_query, first, last):
 
 def safe_api_call(api_func, **kwargs):
     """Generic retry wrapper for API calls with full error exposure"""
+    last_error = None
     for attempt in range(5):
         try:
             return api_func(**kwargs)
         except Exception as e:
+            last_error = e
             print(f"[API ERROR on attempt {attempt + 1}] {type(e).__name__}: {e}")
             if "rate" in str(e).lower() or "limit" in str(e).lower():
-                wait_time = 2 ** attempt
+                wait_time = 2**attempt
                 print(f"Rate limited. Sleeping for {wait_time} seconds...")
                 time.sleep(wait_time)
             else:
                 print(f"Sleeping 2 seconds after unexpected error...")
                 time.sleep(2)
-    raise RuntimeError(f"Repeated API errors. Last error was: {type(e).__name__}: {e}")
+    raise RuntimeError(
+        f"Repeated API errors. Last error was: {type(last_error).__name__}: {last_error}"
+    )
 
 
-def safe_chat_completion(**kwargs):
-    """Backward compatibility wrapper for OpenAI"""
-    return safe_api_call(openai.ChatCompletion.create, **kwargs)
+def safe_chat_completion(client, **kwargs):
+    """Wrapper for OpenAI API calls"""
+    return safe_api_call(client.chat.completions.create, **kwargs)
 
 
 def safe_claude_completion(client, **kwargs):
@@ -529,7 +534,7 @@ def get_api_client(model_name):
             if not openai.api_key:
                 raise ValueError("OPENAI_API_KEY environment variable not set")
         print(f"[Info] Using OpenAI API for model: {model_name}")
-        return "openai", None
+        return "openai", OpenAI(api_key=api_key)
 
     elif "claude" in model_lower:
         # Claude client initialization
@@ -660,6 +665,7 @@ if __name__ == "__main__":
                     f"{m['role'].upper()}: {m['content']}" for m in messages
                 )
                 response = safe_chat_completion(
+                    client,
                     model=args.model_name,
                     messages=messages,
                     temperature=args.temperature,
@@ -667,7 +673,7 @@ if __name__ == "__main__":
                     frequency_penalty=0.0,
                     presence_penalty=0.0,
                 )
-                text = response.choices[0].message["content"].strip()
+                text = response.choices[0].message.content.strip()
 
             elif model_type == "claude":
                 # Claude uses a different message format
@@ -696,9 +702,7 @@ if __name__ == "__main__":
                 )
 
                 response = safe_gemini_completion(
-                    client,
-                    combined_prompt,
-                    generation_config=generation_config
+                    client, combined_prompt, generation_config=generation_config
                 )
                 text = response.text.strip()
 
