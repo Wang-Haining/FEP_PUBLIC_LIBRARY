@@ -396,18 +396,20 @@ def build_messages(arl_member, patron_type, user_query, first, last):
 
 
 def safe_api_call(api_func, **kwargs):
-    """Generic retry wrapper for API calls"""
+    """Generic retry wrapper for API calls with full error exposure"""
     for attempt in range(5):
         try:
             return api_func(**kwargs)
         except Exception as e:
+            print(f"[API ERROR on attempt {attempt + 1}] {type(e).__name__}: {e}")
             if "rate" in str(e).lower() or "limit" in str(e).lower():
-                print(f"Rate limited. Sleeping for {2 ** attempt} seconds...")
-                time.sleep(2**attempt)
+                wait_time = 2 ** attempt
+                print(f"Rate limited. Sleeping for {wait_time} seconds...")
+                time.sleep(wait_time)
             else:
-                print(f"API error: {e}")
+                print(f"Sleeping 2 seconds after unexpected error...")
                 time.sleep(2)
-    raise RuntimeError("Repeated API errors.")
+    raise RuntimeError(f"Repeated API errors. Last error was: {type(e).__name__}: {e}")
 
 
 def safe_chat_completion(**kwargs):
