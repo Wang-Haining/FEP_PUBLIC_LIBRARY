@@ -696,7 +696,7 @@ if __name__ == "__main__":
 
                 response = safe_gemini_completion(
                     client,
-                    prompt=combined_prompt,
+                    combined_prompt,
                     generation_config=generation_config
                 )
                 text = response.text.strip()
