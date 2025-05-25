@@ -529,10 +529,9 @@ def get_api_client(model_name):
 
     if "gpt" in model_lower:
         # OpenAI client initialization
-        if not openai.api_key:
-            openai.api_key = os.getenv("OPENAI_API_KEY")
-            if not openai.api_key:
-                raise ValueError("OPENAI_API_KEY environment variable not set")
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable not set")
         print(f"[Info] Using OpenAI API for model: {model_name}")
         return "openai", OpenAI(api_key=api_key)
 
