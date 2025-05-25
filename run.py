@@ -15,7 +15,7 @@ Prompts and model responses are saved to JSON files, stratified by random seed.
 Example usage:
 python run.py --model_name meta-llama/Meta-Llama-3.1-8B-Instruct
 python run.py --model_name gpt-4o-2024-08-06
-python run.py --model_name claude-sonnet-4-20250514
+python run.py --model_name claude-3-5-sonnet-20241022
 python run.py --model_name gemini-2.5-pro-preview-05-06
 
 Debug mode (runs 10 examples):
