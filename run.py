@@ -378,7 +378,7 @@ def sample_name_sex_race_eth_generator(n):
             # executed only if the for-loop did not break
             raise RuntimeError(
                 f"No suitable surname found for demographic cell: sex={sex}, "
-                f"race_ethnicity={race_eth} after 1000 attempts."
+                f"race_ethnicity={race_eth} after 10000 attempts."
             )
 
         yield first, last, sex, race_eth
