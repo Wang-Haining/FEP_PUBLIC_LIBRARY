@@ -579,10 +579,9 @@ def extract_gemini_text(resp) -> str:
     return ""
 
 
-def gemini_generate_with_retry(model, prompt, *,
-                               temperature: float,
-                               max_tokens: int,
-                               retries: int = 3):
+def gemini_generate_with_retry(
+    model, prompt, *, temperature: float, max_tokens: int, retries: int = 3
+):
     """
     Call Gemini up to `retries` times.  If we get no usable text or hit an
     exception we retry.  Returns (reply_text, n_attempts).
@@ -607,10 +606,9 @@ def gemini_generate_with_retry(model, prompt, *,
     return "[NO_TEXT_AFTER_RETRIES]", retries
 
 
-def openai_chat_with_seed_retry(client, *, messages, model,
-                                base_seed: int,
-                                max_attempts: int = 3,
-                                **common_kw):
+def openai_chat_with_seed_retry(
+    client, *, messages, model, base_seed: int, max_attempts: int = 3, **common_kw
+):
     """
     Call OpenAI chat/completions with a seed.  If the response has no text
     (or any exception is raised) we add +1 to the seed and retry, up to
@@ -723,9 +721,11 @@ if __name__ == "__main__":
             if model_type == "openai":
                 messages = [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user",   "content": user_content},
+                    {"role": "user", "content": user_content},
                 ]
-                prompt = "\n\n".join(f"{m['role'].upper()}: {m['content']}" for m in messages)
+                prompt = "\n\n".join(
+                    f"{m['role'].upper()}: {m['content']}" for m in messages
+                )
 
                 text, used_seed, n_attempts = openai_chat_with_seed_retry(
                     client,
@@ -740,7 +740,9 @@ if __name__ == "__main__":
                 )
 
                 if n_attempts > 1:
-                    print(f"[OpenAI] succeeded on retry #{n_attempts} with seed {used_seed}")
+                    print(
+                        f"[OpenAI] succeeded on retry #{n_attempts} with seed {used_seed}"
+                    )
 
             elif model_type == "claude":
                 # Claude uses a different message format
