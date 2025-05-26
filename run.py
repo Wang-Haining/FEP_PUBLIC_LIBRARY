@@ -570,6 +570,43 @@ def print_debug_info(example_num, system_prompt, user_content, text, model_type)
     print(f"{'='*80}\n")
 
 
+def extract_gemini_text(resp) -> str:
+    """Return first textual Part from a Gemini response or ''."""
+    for cand in getattr(resp, "candidates", []) or []:
+        for part in cand.content.parts:
+            if getattr(part, "text", ""):
+                return part.text.strip()
+    return ""
+
+
+def gemini_generate_with_retry(model, prompt, *,
+                               temperature: float,
+                               max_tokens: int,
+                               retries: int = 3):
+    """
+    Call Gemini up to `retries` times.  If we get no usable text or hit an
+    exception we retry.  Returns (reply_text, n_attempts).
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            resp = safe_gemini_completion(
+                model,
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                ),
+            )
+            reply_text = extract_gemini_text(resp)   # renamed
+            if reply_text:
+                return reply_text, attempt
+            print(f"[Gemini] empty response on attempt {attempt}; retrying …")
+        except Exception as e:
+            print(f"[Gemini] error on attempt {attempt}: {e}; retrying …")
+
+    return "[NO_TEXT_AFTER_RETRIES]", retries
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run demographic bias experiments for LLM-powered library reference services."
@@ -694,16 +731,15 @@ if __name__ == "__main__":
                 combined_prompt = f"{system_prompt}\n\n{user_content}"
                 prompt = f"SYSTEM: {system_prompt}\n\nUSER: {user_content}"
 
-                # configure generation settings for Gemini
-                generation_config = genai.types.GenerationConfig(
+                text, n_attempts = gemini_generate_with_retry(
+                    client,
+                    combined_prompt,
                     temperature=args.temperature,
-                    max_output_tokens=args.max_tokens,
+                    max_tokens=args.max_tokens,
                 )
 
-                response = safe_gemini_completion(
-                    client, combined_prompt, generation_config=generation_config
-                )
-                text = response.text.strip()
+                if n_attempts > 1:
+                    print(f"[Gemini] succeeded on retry #{n_attempts}")
 
             else:  # vllm
                 messages = [
