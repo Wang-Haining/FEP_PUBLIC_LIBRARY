@@ -361,7 +361,7 @@ def sample_name_sex_race_eth_generator(n):
 
         # sample surname conditioned on race_eth
         surname_weights = valid_surnames["count"] / valid_surnames["count"].sum()
-        for _ in range(1000):  # retry up to 1000 times
+        for _ in range(10000):  # retry up to 10000 times
             idx = np.random.choice(len(valid_surnames), p=surname_weights)
             props = np.array(valid_surnames.at[idx, "race_prop"], dtype=float)
 
