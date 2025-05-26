@@ -682,6 +682,10 @@ if __name__ == "__main__":
             print(f"[Info] Seed {seed} already complete → skipping")
             continue
 
+        # set the random seed at the start of each seed iteration
+        random.seed(seed)
+        np.random.seed(seed)  # Also set numpy seed for consistency
+
         # paths
         final_path = os.path.join(OUTPUT_DIR, f"{tag}_seed_{seed}.json")
         partial_path = os.path.join(OUTPUT_DIR, f"{tag}_seed_{seed}_partial.json")
@@ -693,6 +697,14 @@ if __name__ == "__main__":
                 results = json.load(f) or []
             start_idx = len(results)
             print(f"[Resume] Seed {seed}: {start_idx}/{args.num_runs} done")
+
+            # fast-forward the random state to account for consumed choices
+            # each iteration consumes 3 random choices: patron, arl, query_type
+            for _ in range(start_idx):
+                random.choice(PATRON_TYPES)  # consume patron choice
+                random.choice(ARL_MEMBERS)   # consume arl choice
+                random.choice(QUERY_TYPES)   # consume query_type choice
+            print(f"[Resume] Fast-forwarded random state for {start_idx} completed examples")
         else:
             print(f"[Start]  Seed {seed}: fresh run")
 
@@ -706,7 +718,6 @@ if __name__ == "__main__":
             patron = random.choice(PATRON_TYPES)
             arl = random.choice(ARL_MEMBERS)
             query_type = random.choice(QUERY_TYPES)
-
             # build the specific user_query
             if query_type == "sports_team":
                 user_query = (
