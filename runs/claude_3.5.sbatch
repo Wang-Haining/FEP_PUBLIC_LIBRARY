@@ -1,5 +1,5 @@
 #!/bin/sh
-#SBATCH --job-name=gpt_4o
+#SBATCH --job-name=claude_3.5
 #SBATCH --account=group-jasonclark
 #SBATCH --partition=unsafe
 #SBATCH --cpus-per-task=8
@@ -15,4 +15,4 @@ module load Python/3.10.8-GCCcore-12.2.0
 module load CUDA/12.2.0
 . .venv/bin/activate
 
-python run.py --model_name gpt-4o-2024-08-06
+python run.py --model_name claude-3-5-sonnet-20241022
