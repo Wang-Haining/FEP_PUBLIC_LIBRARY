@@ -27,13 +27,13 @@ import io
 import json
 import os
 import random
+import re
 import time
 import zipfile
 
 import anthropic
 import google.generativeai as genai
 import numpy as np
-import openai
 import pandas as pd
 import requests
 from openai import OpenAI
@@ -635,6 +635,7 @@ def openai_chat_with_seed_retry(
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser(
         description="Run demographic bias experiments for LLM-powered library reference services."
     )
@@ -669,27 +670,39 @@ if __name__ == "__main__":
 
     tag = args.model_name.split("/")[-1].replace("-", "_")
 
-    if not args.debug:
-        completed_seeds = {
-            int(f.split("_seed_")[-1].split(".")[0])
-            for f in os.listdir(OUTPUT_DIR)
-            if f.startswith(tag + "_seed_") and f.endswith(".json")
-        }
-    else:
-        completed_seeds = set()  # in debug mode, always run
+    # detect seeds that are fully finished (ignore *_partial.json)
+    completed_seeds = {
+        int(m.group(1))
+        for f in os.listdir(OUTPUT_DIR)
+        if (m := re.search(rf"^{re.escape(tag)}_seed_(\d+)\.json$", f))
+    }
 
     for seed in FIXED_SEEDS[:1] if args.debug else FIXED_SEEDS:
         if seed in completed_seeds:
-            print(f"[Info] Skipping seed {seed} (already completed)")
+            print(f"[Info] Seed {seed} already complete → skipping")
             continue
 
-        random.seed(seed)
-        results = []
-        partial_file = None
+        # paths
+        final_path = os.path.join(OUTPUT_DIR, f"{tag}_seed_{seed}.json")
+        partial_path = os.path.join(OUTPUT_DIR, f"{tag}_seed_{seed}_partial.json")
 
-        for i, (first, last, sex, race_eth) in enumerate(
-            tqdm(sample_name_sex_race_eth_generator(args.num_runs), desc=f"Seed {seed}")
-        ):
+        results = []
+        start_idx = 0
+        if os.path.exists(partial_path):
+            with open(partial_path, "r", encoding="utf-8") as f:
+                results = json.load(f) or []
+            start_idx = len(results)
+            print(f"[Resume] Seed {seed}: {start_idx}/{args.num_runs} done")
+        else:
+            print(f"[Start]  Seed {seed}: fresh run")
+
+        remaining = args.num_runs - start_idx
+        name_stream = sample_name_sex_race_eth_generator(remaining)
+        pbar = tqdm(
+            name_stream, desc=f"Seed {seed}", initial=start_idx, total=args.num_runs
+        )
+
+        for i, (first, last, sex, race_eth) in enumerate(pbar, start=start_idx):
             patron = random.choice(PATRON_TYPES)
             arl = random.choice(ARL_MEMBERS)
             query_type = random.choice(QUERY_TYPES)
@@ -809,33 +822,19 @@ if __name__ == "__main__":
                 }
             )
 
-            # checkpoint every 50 examples (skip in debug mode)
-            if not args.debug and i > 0 and i % 50 == 0:
-                partial_file = os.path.join(
-                    OUTPUT_DIR, f"{tag}_seed_{seed}_partial.json"
-                )
-                with open(partial_file, "w", encoding="utf-8") as f:
+            # checkpoint every 50 examples
+            if not args.debug and (i + 1) % 50 == 0:
+                with open(partial_path, "w", encoding="utf-8") as f:
                     json.dump(results, f, ensure_ascii=False, indent=2)
-                print(
-                    f"[Checkpoint] Saved {len(results)} partial results to {partial_file}"
-                )
+                pbar.set_postfix_str(f"checkpoint @ {i+1}")
 
-        # final save
-        if args.debug:
-            out_file = os.path.join(OUTPUT_DIR, f"{tag}_seed_{seed}_debug.json")
-        else:
-            out_file = os.path.join(OUTPUT_DIR, f"{tag}_seed_{seed}.json")
-
-        with open(out_file, "w", encoding="utf-8") as f:
+        with open(final_path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
-        print(f"Saved {len(results)} records to {out_file}")
+        print(f"[Done] Seed {seed}: saved {len(results)} records to {final_path}")
 
-        # remove any leftover partial file
-        if partial_file and os.path.exists(partial_file):
-            os.remove(partial_file)
+        if os.path.exists(partial_path):
+            os.remove(partial_path)
 
         if args.debug:
             print("\n[DEBUG MODE COMPLETE]")
-            print(
-                "Review the output above to ensure messages are formatted correctly for each API."
-            )
+            break  # run only one seed in debug
