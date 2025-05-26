@@ -597,7 +597,7 @@ def gemini_generate_with_retry(model, prompt, *,
                     max_output_tokens=max_tokens,
                 ),
             )
-            reply_text = extract_gemini_text(resp)   # renamed
+            reply_text = extract_gemini_text(resp)
             if reply_text:
                 return reply_text, attempt
             print(f"[Gemini] empty response on attempt {attempt}; retrying …")
@@ -605,6 +605,35 @@ def gemini_generate_with_retry(model, prompt, *,
             print(f"[Gemini] error on attempt {attempt}: {e}; retrying …")
 
     return "[NO_TEXT_AFTER_RETRIES]", retries
+
+
+def openai_chat_with_seed_retry(client, *, messages, model,
+                                base_seed: int,
+                                max_attempts: int = 3,
+                                **common_kw):
+    """
+    Call OpenAI chat/completions with a seed.  If the response has no text
+    (or any exception is raised) we add +1 to the seed and retry, up to
+    `max_attempts` times.  Returns (reply_text, used_seed, n_attempts).
+    """
+    for k in range(max_attempts):
+        current_seed = base_seed + k
+        try:
+            resp = safe_chat_completion(
+                client,
+                model=model,
+                messages=messages,
+                seed=current_seed,
+                **common_kw,
+            )
+            reply_text = resp.choices[0].message.content.strip()
+            if reply_text:
+                return reply_text, current_seed, k + 1
+            print(f"[OpenAI] empty text on seed={current_seed}; retrying …")
+        except Exception as e:
+            print(f"[OpenAI] error on seed={current_seed}: {e}; retrying …")
+
+    return "[NO_TEXT_AFTER_RETRIES]", base_seed + max_attempts - 1, max_attempts
 
 
 if __name__ == "__main__":
@@ -694,22 +723,24 @@ if __name__ == "__main__":
             if model_type == "openai":
                 messages = [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content},
+                    {"role": "user",   "content": user_content},
                 ]
-                # for logging only
-                prompt = "\n\n".join(
-                    f"{m['role'].upper()}: {m['content']}" for m in messages
-                )
-                response = safe_chat_completion(
+                prompt = "\n\n".join(f"{m['role'].upper()}: {m['content']}" for m in messages)
+
+                text, used_seed, n_attempts = openai_chat_with_seed_retry(
                     client,
-                    model=args.model_name,
                     messages=messages,
+                    model=args.model_name,
+                    base_seed=seed,
+                    max_attempts=3,
                     temperature=args.temperature,
                     max_tokens=args.max_tokens,
                     frequency_penalty=0.0,
                     presence_penalty=0.0,
                 )
-                text = response.choices[0].message.content.strip()
+
+                if n_attempts > 1:
+                    print(f"[OpenAI] succeeded on retry #{n_attempts} with seed {used_seed}")
 
             elif model_type == "claude":
                 # Claude uses a different message format
