@@ -125,8 +125,8 @@ def probe(df, mode="content", max_features=120, model_name=None):
     - Race/Ethnicity: White (class 0) as reference
     - Patron Type: Undergraduate student (class 0) as reference
 
-    Note: We place reference groups last in the encoding to work with statsmodels' behavior,
-    but maintain their conceptual position as class 0 in the output.
+    Note: We place reference groups last in the encoding to work with statsmodels'
+    behavior, but maintain their conceptual position as class 0 in the output.
 
     Parameters:
         - df: DataFrame with 'response', 'label', 'seed'
