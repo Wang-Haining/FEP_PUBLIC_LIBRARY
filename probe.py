@@ -310,7 +310,7 @@ def probe(df, mode="content", max_features=120, model_name=None):
             class_map = {
                 0: 1,  # Black → 1
                 1: 2,  # Asian → 2
-                2: 3,  # American Indian → 3
+                2: 3,  # American Indian/Alaska Native → 3
                 3: 4,  # Two or More → 4
                 4: 5   # Hispanic → 5
             }
