@@ -21,6 +21,11 @@ MODELS EVALUATED:
 - Open-weights models: Llama-3.1-8B, Ministral-8B, Gemma-2-9B
 - Commercial models: GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro
 
+NOTE: Claude and Gemma-2 generate significantly shorter responses (~163 words) compared to other models
+(~200-430 words). To prevent overfitting due to sparsity, these models use reduced feature sets:
+- Content mode: 60 features (vs 120 for other models)
+- Function word mode: 198 features (unchanged)
+
 REFERENCE GROUP ENCODINGS (used by statsmodels for baseline class):
 - Sex:             F(0), M (1)
 - Race/Ethnicity:  White (0), Black or African American (1), Asian or Pacific Islander (2),
@@ -267,8 +272,8 @@ def probe(df, mode="content", max_features=120, model_name=None):
         results[name] = {"mean_acc": mean_acc, "ci": ci, "feature_weights": avg_weights}
 
     # statsmodels - with adjusted class labels to maintain conceptually clear
-    # adjust feature size only for Gemma-2 content mode
-    if model_name and "gemma" in model_name.lower() and mode == "content":
+    # adjust feature size for shorter-response models (Claude and Gemma-2)
+    if model_name and ("gemma" in model_name.lower() or "claude" in model_name.lower()) and mode == "content":
         vectorizer_stats = TfidfVectorizer(
             tokenizer=ContentTokenizer(),
             token_pattern=None,
