@@ -17,6 +17,10 @@ The script performs 5-fold cross-validation using fixed random seeds, reporting:
 - Statistical significance of features using statsmodels logistic regression
 - Volcano plots to visualize coefficient strength vs. p-value
 
+MODELS EVALUATED:
+- Open-weights models: Llama-3.1-8B, Ministral-8B, Gemma-2-9B
+- Commercial models: GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro
+
 REFERENCE GROUP ENCODINGS (used by statsmodels for baseline class):
 - Sex:             F(0), M (1)
 - Race/Ethnicity:  White (0), Black or African American (1), Asian or Pacific Islander (2),
@@ -54,7 +58,8 @@ stop_words_set = set(stopwords.words("english"))
 
 def load_data(model_name: str,
               characteristic: str,
-              input_dir: str = "outputs") -> pd.DataFrame:
+              input_dir: str = "outputs",
+              failure_token: str = "[NO_TEXT_AFTER_RETRIES]") -> pd.DataFrame:
     """
     Load model generation outputs and extract text responses and target characteristics.
 
@@ -62,6 +67,7 @@ def load_data(model_name: str,
     - model_name: HF/OpenAI model name (e.g., 'meta-llama/Llama-3.1-8B-Instruct', 'gpt-4o').
     - characteristic: One of 'sex', 'race_ethnicity', or 'patron_type'.
     - input_dir: Directory containing seed-wise output JSON files.
+    - failure_token: Token indicating failed generation to filter out.
 
     Returns:
     - DataFrame with columns ['response', 'label', 'seed'].
@@ -77,11 +83,13 @@ def load_data(model_name: str,
         with open(os.path.join(input_dir, file), "r", encoding="utf-8") as f:
             data = json.load(f)
             for entry in data:
-                rows.append({
-                    "response": entry["response"],
-                    "label": entry[characteristic],
-                    "seed": entry["seed"]
-                })
+                response = entry["response"]
+                if failure_token not in response:  # Filter out failed generations
+                    rows.append({
+                        "response": response,
+                        "label": entry[characteristic],
+                        "seed": entry["seed"]
+                    })
 
     df = pd.DataFrame(rows)
     df = df.dropna(subset=["response", "label"]).reset_index(drop=True)
@@ -409,7 +417,10 @@ def main():
         model_names = [
             "meta-llama/Llama-3.1-8B-Instruct",
             "mistralai/Ministral-8B-Instruct-2410",
-            "google/gemma-2-9b-it"
+            "google/gemma-2-9b-it",
+            "gpt-4o-2024-08-06",
+            "claude-3-5-sonnet-20241022",
+            "gemini-2.5-pro-preview-0506"
         ]
         characteristics = ["sex", "race_ethnicity", "patron_type"]
         modes = ["content", "stopwords"]
