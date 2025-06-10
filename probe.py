@@ -465,7 +465,7 @@ def main():
             "google/gemma-2-9b-it",
             "gpt-4o-2024-08-06",
             "claude-3-5-sonnet-20241022",
-            "gemini-2.5-pro-preview-0506"
+            "gemini-2.5-pro-preview-05-06"
         ]
         characteristics = ["sex", "race_ethnicity", "patron_type"]
         modes = ["content", "stopwords"]
