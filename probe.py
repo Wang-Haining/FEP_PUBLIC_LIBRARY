@@ -83,21 +83,61 @@ def load_data(model_name: str,
     tag = model_name.split('/')[-1].replace('-', '_').replace('/', '_')
     files = [f for f in os.listdir(input_dir) if f.startswith(f"{tag}_seed_") and f.endswith(".json")]
 
+    print(f"DEBUG: Loading {model_name} / {characteristic}")
+    print(f"DEBUG: Looking for files with pattern: {tag}_seed_*.json")
+    print(f"DEBUG: Found {len(files)} files: {files[:3]}{'...' if len(files) > 3 else ''}")
+
+    if not files:
+        print(f"ERROR: No files found for model {model_name} with tag {tag}")
+        available_files = [f for f in os.listdir(input_dir) if f.endswith(".json")]
+        print(f"Available JSON files: {available_files[:5]}{'...' if len(available_files) > 5 else ''}")
+        raise FileNotFoundError(f"No files found for model {model_name}")
+
     rows = []
+    total_entries = 0
+    filtered_entries = 0
+
     for file in files:
         with open(os.path.join(input_dir, file), "r", encoding="utf-8") as f:
             data = json.load(f)
-            for entry in data:
-                response = entry["response"]
-                if failure_token not in response:  # Filter out failed generations
+
+        for entry in data:
+            total_entries += 1
+            response = entry["response"]
+            if failure_token not in response:  # Filter out failed generations
+                if characteristic in entry:
                     rows.append({
                         "response": response,
                         "label": entry[characteristic],
                         "seed": entry["seed"]
                     })
+                else:
+                    print(f"WARNING: Missing characteristic '{characteristic}' in entry from {file}")
+            else:
+                filtered_entries += 1
+
+    print(f"DEBUG: Total entries: {total_entries}, Filtered out: {filtered_entries}, Valid: {len(rows)}")
+
+    if not rows:
+        print(f"ERROR: No valid data found for {model_name} / {characteristic}")
+        if total_entries > 0:
+            print("Sample entry keys:", list(data[0].keys()) if data else "No data")
+        raise ValueError(f"No valid data loaded for {model_name} / {characteristic}")
 
     df = pd.DataFrame(rows)
+    print(f"DEBUG: Created DataFrame with shape {df.shape} and columns {list(df.columns)}")
+
+    # Check for missing data before dropna
+    if df.empty:
+        raise ValueError(f"Empty DataFrame created for {model_name} / {characteristic}")
+
+    missing_response = df['response'].isna().sum()
+    missing_label = df['label'].isna().sum()
+    if missing_response > 0 or missing_label > 0:
+        print(f"WARNING: Missing data - response: {missing_response}, label: {missing_label}")
+
     df = df.dropna(subset=["response", "label"]).reset_index(drop=True)
+    print(f"DEBUG: Final DataFrame shape after dropna: {df.shape}")
     return df
 
 
