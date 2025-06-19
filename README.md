@@ -1,21 +1,20 @@
-# Fairness Evaluation of Large Language Models in Library Reference Services ⚖
+# Fairness Evaluation of Large Language Models in Academic Library Reference Services ⚖
 
-This repository supports the paper **Fairness Evaluation of Large Language Models in Library Reference Services ⚖**.
-Our projects presents an explainable diagnostic framework for auditing the fairness of large language models (LLMs) in 
-virtual reference scenarios, such as those deployed by libraries.
+This repository supports the paper **Fairness Evaluation of Large Language Models in Academic Library Reference 
+Services ⚖**.
+Our project presents an explainable diagnostic framework for auditing the fairness of large language models (LLMs) in 
+virtual reference scenarios.
 
-In this repo, we provide tools, results, and reproducible scripts for analyzing whether LLM-generated outputs differ by 
+In this repo, we provide code, data, and results for analyzing whether LLM-generated outputs differ by 
 user attributes such as **sex, race/ethnicity, and patron type**.
-
 
 ---
 
-## 🧪 What’s in This Repository?
+## 🧪 What's in This Repository?
 
-- ✅ **[Fairness Probing Framework (FPF)](probe.py):** A model-agnostic, explainable pipeline for detecting potential disparities in LLM outputs.
-- 📚 **[Data Collection](outputs/):** Prompted outputs from Llama-3.1 (8B), Gemma-2 (9B), and Ministral (8B) across different user groups.
-- 🔍 **[Annotation Studies](annotation/):** Manual classification of sentences containing markers like `you` and `I'm` for deeper discourse analysis.
-- 🦜 **[Patron-LMM Interaction Simulation](run.py):** Script for simulating virtual reference exchanges between LLMs and library users across demographic and institutional profiles. Used to generate outputs for fairness probing.
+- ✅ **[Fairness Evaluation Protocol (FEP)](probe.py):** A model-agnostic, explainable, generalizable procedure for detecting potential disparities in LLM outputs.
+- 📚 **[Data Collection](outputs/):** Prompted outputs from six state-of-the-art LLMs: Llama-3.1 (8B), Gemma-2 (9B), Ministral (8B), GPT-4o, Claude-3.5 Sonnet, and Gemini-2.5 Pro across different user groups.
+- 🦜 **[Patron-LLM Interaction Simulation](run.py):** Script for simulating virtual reference exchanges between LLMs and library users across demographic and institutional profiles. Used to generate outputs for fairness probing.
 
 ---
 
@@ -29,7 +28,7 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-2. Run the probing script
+2. Run the diagnostic classifiers
 
 ```bash
 python probe.py
