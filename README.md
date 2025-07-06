@@ -1,9 +1,8 @@
-# Fairness Evaluation of Large Language Models in Academic Library Reference Services ⚖
+# Fairness Evaluation of Large Language Models in Public Libraries ⚖
 
-This repository supports the paper **Fairness Evaluation of Large Language Models in Academic Library Reference 
-Services ⚖**.
+This repository supports the paper **Fairness Evaluation of Large Language Models in Public Libraries**.
 Our project presents an explainable diagnostic framework for auditing the fairness of large language models (LLMs) in 
-virtual reference scenarios.
+a few realistic scenarios in public libraries.
 
 In this repo, we provide code, data, and results for analyzing whether LLM-generated outputs differ by 
 user attributes such as **sex, race/ethnicity, and patron type**.
