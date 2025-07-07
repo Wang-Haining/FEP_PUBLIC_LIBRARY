@@ -223,8 +223,8 @@ def probe(df, max_features=100, model_name=None):
             C=1.0, max_iter=1000, solver="liblinear", penalty="l2", random_state=42
         ),
         "mlp": lambda: MLPClassifier(
-            hidden_layer_sizes=(64, 32), activation="relu", solver="adam",
-            alpha=1e-4, max_iter=5000, early_stopping=True, random_state=42
+            hidden_layer_sizes=(128, 64), activation="relu", solver="adam",
+            alpha=1e-4, max_iter=2000, early_stopping=True, random_state=42
         ),
         "xgboost": lambda: XGBClassifier(
             n_estimators=100, learning_rate=0.1, max_depth=4,
