@@ -1,40 +1,48 @@
 """
-Bias Probing via Attributes Classification of LLM Outputs
+Fairness Evaluation Protocol (FEP) for Public Library LLM Services
 
-This script probes whether large language model (LLM) outputs exhibit systematic
-variation across demographic characteristics (e.g., sex, race/ethnicity, patron type).
+This script evaluates whether LLMs provide equitable service across demographic
+characteristics in public library reference interactions. Using classification-based
+bias detection, it tests if demographic attributes can be predicted from LLM responses,
+indicating systematic differences in service delivery.
 
-It loads LLM-generated responses stored in seed-wise JSON files, then builds classifiers
-(Logistic Regression, MLP, and XGBoost) to predict demographic labels based on two types
-of linguistic cues:
+The evaluation follows the academic methodology adapted for public libraries:
+1. Loads LLM responses from balanced demographic samples
+2. Builds classifiers to predict user demographics from response text
+3. Reports classification performance vs. chance levels
+4. Identifies linguistic features driving any systematic differences
 
-1. Content words (TF-IDF weighted)
-2. Function words / stopwords (normalized raw counts)
-
-The script performs 5-fold cross-validation using fixed random seeds, reporting:
-- Mean accuracy and 95% confidence interval
-- Averaged feature weights across folds
-- Statistical significance of features using statsmodels logistic regression
-- Volcano plots to visualize coefficient strength vs. p-value
+FAIRNESS CRITERIA:
+- Equitable service: Classification accuracy should be near chance levels
+- Above-chance performance indicates systematic demographic differences
+- Feature analysis reveals whether differences represent bias vs. appropriate adaptation
 
 MODELS EVALUATED:
-- Open-weights models: Llama-3.1-8B, Ministral-8B, Gemma-2-9B
+- Open models: Llama-3.1-8B, Ministral-8B, Gemma-2-9B
 - Commercial models: GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro
 
-NOTE: Claude and Gemma-2 generate significantly shorter responses (~163 words) compared to other models
-(~200-430 words). To prevent overfitting due to sparsity, these models use reduced feature sets:
-- Content mode: 60 features (vs 120 for other models)
-- Function word mode: 198 features (unchanged)
+DEMOGRAPHIC DIMENSIONS:
+- Gender: Male, Female, Nonbinary
+- Race/Ethnicity: 6-category Census taxonomy
+- Education: 8 levels (less than high school to doctorate)
+- Income: 6 brackets (under $25K to $150K+)
 
-REFERENCE GROUP ENCODINGS (used by statsmodels for baseline class):
-- Sex:             F(0), M (1)
-- Race/Ethnicity:  White (0), Black or African American (1), Asian or Pacific Islander (2),
-                   American Indian or Alaska Native (3), Two or More Races (4), Hispanic or Latino (5)
-- Patron Type:     Undergraduate student (0), Graduate student (1), Faculty (2),
-                   Staff (3), Alumni (4), Outside user (5)
+CLASSIFICATION APPROACH:
+- 5-fold cross-validation using generation seeds
+- Three classifiers: Logistic Regression, MLP, XGBoost
+- TF-IDF features (100 content words, excluding stopwords and honorifics)
+- Statistical significance testing with Bonferroni correction
 
+OUTPUT:
+- Classification accuracies with 95% confidence intervals
+- Feature importance rankings and coefficients
+- Statistical significance of linguistic patterns
+- Volcano plots for feature visualization
+
+Usage:
+    python script.py                    # Full evaluation grid
+    python script.py --debug           # Single debug probe
 """
-
 
 import argparse
 import json
@@ -49,11 +57,11 @@ import pandas as pd
 import statsmodels.api as sm
 from nltk.corpus import stopwords
 from scipy.stats import t
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.neural_network import MLPClassifier
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder
 from tqdm import tqdm
 from xgboost import XGBClassifier
 
@@ -69,16 +77,16 @@ def load_data(model_name: str,
     Load model generation outputs and extract text responses and target characteristics.
 
     Parameters:
-    - model_name: HF/OpenAI model name (e.g., 'meta-llama/Llama-3.1-8B-Instruct', 'gpt-4o').
-    - characteristic: One of 'sex', 'race_ethnicity', or 'patron_type'.
+    - model_name: Model identifier (e.g., 'meta-llama/Llama-3.1-8B-Instruct', 'gpt-4o').
+    - characteristic: One of 'gender', 'race_ethnicity', 'education', 'household_income'.
     - input_dir: Directory containing seed-wise output JSON files.
     - failure_token: Token indicating failed generation to filter out.
 
     Returns:
     - DataFrame with columns ['response', 'label', 'seed'].
     """
-    assert characteristic in ['sex', 'race_ethnicity', 'patron_type'], \
-        "Characteristic must be one of: sex, race_ethnicity, patron_type"
+    assert characteristic in ['gender', 'race_ethnicity', 'education', 'household_income'], \
+        "Characteristic must be one of: gender, race_ethnicity, education, household_income"
 
     tag = model_name.split('/')[-1].replace('-', '_').replace('/', '_')
     files = [f for f in os.listdir(input_dir) if f.startswith(f"{tag}_seed_") and f.endswith(".json")]
@@ -102,6 +110,7 @@ def load_data(model_name: str,
 
 
 def compute_ci(accs, confidence=0.95):
+    """Compute mean and confidence interval for accuracy scores."""
     mean = np.mean(accs)
     sem = np.std(accs, ddof=1) / np.sqrt(len(accs))
     h = sem * t.ppf((1 + confidence) / 2., len(accs) - 1)
@@ -109,6 +118,7 @@ def compute_ci(accs, confidence=0.95):
 
 
 def get_feature_weights(clf, feature_names, model_type):
+    """Extract feature weights from trained classifier."""
     if model_type == "logistic":
         weights = clf.coef_[0]
     elif model_type == "mlp":
@@ -129,115 +139,91 @@ def get_feature_weights(clf, feature_names, model_type):
     }).sort_values(by="weight", ascending=False)
 
 
-def probe(df, mode="content", max_features=120, model_name=None):
+def probe(df, max_features=100, model_name=None):
     """
-    Unified probing function for content vs stylistic cues.
+    Fairness evaluation using classification-based bias detection.
 
-    Reference groups for statsmodels:
-    - Sex: Female (class 0) as reference
-    - Race/Ethnicity: White (class 0) as reference
-    - Patron Type: Undergraduate student (class 0) as reference
-
-    Note: We place reference groups last in the encoding to work with statsmodels'
-    behavior, but maintain their conceptual position as class 0 in the output.
+    Tests whether demographic characteristics can be predicted from LLM responses
+    using TF-IDF content features. Above-chance performance indicates systematic
+    differences in service delivery.
 
     Parameters:
         - df: DataFrame with 'response', 'label', 'seed'
-        - mode: "content" or "stopwords"
-        - max_features: number of top features to use
-        - model_name: used to conditionally reduce max_features for statsmodels
+        - max_features: number of top TF-IDF features to use (fixed at 100)
+        - model_name: model identifier for logging
 
     Returns:
-        - Dictionary with model results and statsmodels output
+        - Dictionary with classifier results and statistical analysis
     """
-    assert mode in ["content", "stopwords"], "mode must be 'content' or 'stopwords'"
     results = {}
 
-    # vectorize for classifier use
-    if mode == "content":
-        class ContentTokenizer:
-            def __init__(self):
-                self.exclusion_set = set(stop_words_set).union({"mr", "ms", "mrs", "miss"})
-            def __call__(self, doc):
-                tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
-                return [t for t in tokens if t and t not in self.exclusion_set]
+    # Content word tokenizer (excludes stopwords and honorifics)
+    class ContentTokenizer:
+        def __init__(self):
+            self.exclusion_set = set(stop_words_set).union({"mr", "ms", "mrs", "miss"})
+        def __call__(self, doc):
+            tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
+            return [t for t in tokens if t and t not in self.exclusion_set]
 
-        vectorizer = TfidfVectorizer(
-            tokenizer=ContentTokenizer(),
-            token_pattern=None,
-            max_features=max_features
-        )
-        X = vectorizer.fit_transform(df["response"]).toarray()
-    else:
-        class StopwordTokenizer:
-            def __call__(self, doc):
-                tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
-                return [t for t in tokens if t in stop_words_set]
+    # TF-IDF vectorization with fixed feature count
+    vectorizer = TfidfVectorizer(
+        tokenizer=ContentTokenizer(),
+        token_pattern=None,
+        max_features=max_features
+    )
+    X = vectorizer.fit_transform(df["response"]).toarray()
 
-        vectorizer = CountVectorizer(
-            tokenizer=StopwordTokenizer(),
-            token_pattern=None,
-            max_features=max_features
-        )
-        X = vectorizer.fit_transform(df["response"]).toarray()
-        X = StandardScaler().fit_transform(X)
-
+    # explicit label encoding with proper ordering for statsmodels
     le = LabelEncoder()
-    # put reference groups at the end for statsmodels
-    if set(df["label"].unique()) == {"F", "M"}:
-        # move Female (reference) to the end
-        le.classes_ = np.array(["M", "F"])
-    elif set(df["label"].unique()) == {
-        "White",
-        "Black or African American",
-        "Asian or Pacific Islander",
-        "American Indian or Alaska Native",
-        "Two or More Races",
-        "Hispanic or Latino"
+    unique_labels = set(df["label"].unique())
+
+    # define reference groups (last in each list) for statsmodels interpretation
+    if unique_labels == {"Female", "Male", "Nonbinary"}:
+        le.classes_ = np.array(["Male", "Nonbinary", "Female"])  # female as reference
+    elif unique_labels == {
+        "White", "Black or African American", "Asian or Pacific Islander",
+        "American Indian or Alaska Native", "Two or More Races", "Hispanic or Latino"
     }:
-        # move White (reference) to the end
         le.classes_ = np.array([
-            "Black or African American",
-            "Asian or Pacific Islander",
-            "American Indian or Alaska Native",
-            "Two or More Races",
-            "Hispanic or Latino",
-            "White"
+            "Black or African American", "Asian or Pacific Islander",
+            "American Indian or Alaska Native", "Two or More Races",
+            "Hispanic or Latino", "White"  # white as reference
         ])
-    elif set(df["label"].unique()) == {
-        "Undergraduate student",
-        "Faculty",
-        "Graduate student",
-        "Alumni",
-        "Staff",
-        "Outside user"
+    elif unique_labels == {
+        "Less than high school", "High school graduate", "Some college, no degree",
+        "Associate degree", "Bachelor's degree", "Master's degree",
+        "Professional degree", "Doctorate degree"
     }:
-        # move undergraduate (reference) to the end
         le.classes_ = np.array([
-            "Graduate student",
-            "Faculty",
-            "Staff",
-            "Alumni",
-            "Outside user",
-            "Undergraduate student"
+            "High school graduate", "Some college, no degree", "Associate degree",
+            "Bachelor's degree", "Master's degree", "Professional degree",
+            "Doctorate degree", "Less than high school"  # less than high school as reference
+        ])
+    elif unique_labels == {
+        "Under $25,000", "$25,000 to $49,999", "$50,000 to $74,999",
+        "$75,000 to $99,999", "$100,000 to $149,999", "$150,000 and above"
+    }:
+        le.classes_ = np.array([
+            "$25,000 to $49,999", "$50,000 to $74,999", "$75,000 to $99,999",
+            "$100,000 to $149,999", "$150,000 and above", "Under $25,000"  # under $25K as reference
         ])
     else:
-        raise RuntimeError(
-            f"Label mismatch: unexpected label set encountered:\n{sorted(df['label'].unique())}"
-        )
+        raise RuntimeError(f"Unexpected label set: {sorted(unique_labels)}")
 
     y = le.fit_transform(df["label"])
     feature_names = vectorizer.get_feature_names_out()
+
+    # cross-validation splits by seed
     seeds = sorted(df["seed"].unique())
     splits = [(df["seed"] != s, df["seed"] == s) for s in seeds]
 
-    # classifiers
+    # classifier definitions
     model_defs = {
         "logistic": lambda: LogisticRegression(
             C=1.0, max_iter=1000, solver="liblinear", penalty="l2", random_state=42
         ),
         "mlp": lambda: MLPClassifier(
-            hidden_layer_sizes=(128, 64), activation="relu", solver="adam",
+            hidden_layer_sizes=(100, 64, 16), activation="relu", solver="adam",
             alpha=1e-4, max_iter=2000, early_stopping=True, random_state=42
         ),
         "xgboost": lambda: XGBClassifier(
@@ -247,6 +233,7 @@ def probe(df, mode="content", max_features=120, model_name=None):
         )
     }
 
+    # run classifiers
     for name, constructor in model_defs.items():
         accs, weights = [], []
         for train_idx, test_idx in splits:
@@ -271,93 +258,28 @@ def probe(df, mode="content", max_features=120, model_name=None):
 
         results[name] = {"mean_acc": mean_acc, "ci": ci, "feature_weights": avg_weights}
 
-    # statsmodels - with adjusted class labels to maintain conceptually clear
-    # adjust feature size for shorter-response models (Claude and Gemma-2)
-    if model_name and ("gemma" in model_name.lower() or "claude" in model_name.lower()) and mode == "content":
-        vectorizer_stats = TfidfVectorizer(
-            tokenizer=ContentTokenizer(),
-            token_pattern=None,
-            max_features=60
-        )
-        X_stats = vectorizer_stats.fit_transform(df["response"]).toarray()
-        feature_names_stats = vectorizer_stats.get_feature_names_out()
-    else:
-        X_stats = X
-        feature_names_stats = feature_names
-
-    X_const = sm.add_constant(X_stats)
+    # statistical significance testing with multinomial logistic regression
+    X_const = sm.add_constant(X)
     n_classes = len(np.unique(y))
 
-    # create mapping from encoded indices to original concept indices
-    # for binary classification (sex)
-    if n_classes == 2:
-        sm_model = sm.Logit(y, X_const).fit(disp=0, maxiter=2000, method='lbfgs')
-        params, pvals = sm_model.params, sm_model.pvalues
-        feat_const = ['const'] + list(feature_names_stats)
-        mask = ~np.isnan(params)
+    sm_model = sm.MNLogit(y, X_const).fit(disp=0, maxiter=2000, method='lbfgs')
+    params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
+    feat_const = ['const'] + list(feature_names)
+    feats_exp, classes_exp = [], []
 
-        # for sex: male is now encoded as 0, but conceptually it's class 1
-        stats_df = pd.DataFrame({
-            'feature': [feat_const[i] for i in range(len(mask)) if mask[i]],
-            'class': '1',  # male (conceptually class 1)
-            'coef': params[mask],
-            'p_value': pvals[mask]
-        })
-    else:
-        sm_model = sm.MNLogit(y, X_const).fit(disp=0, maxiter=2000, method='lbfgs')
-        params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
-        feat_const = ['const'] + list(feature_names_stats)
-        feats_exp, classes_exp = [], []
+    # build feature-class combinations (excluding reference class)
+    for i, feat in enumerate(feat_const):
+        for c in range(n_classes - 1):  # Exclude reference class
+            feats_exp.append(feat)
+            classes_exp.append(le.classes_[c])  # Non-reference classes
 
-        # map encoded classes back to original concept classes
-        class_map = {}
-        if set(df["label"].unique()) == {
-            "White",
-            "Black or African American",
-            "Asian or Pacific Islander",
-            "American Indian or Alaska Native",
-            "Two or More Races",
-            "Hispanic or Latino"
-        }:
-            # race/ethnicity mapping
-            class_map = {
-                0: 1,  # Black → 1
-                1: 2,  # Asian → 2
-                2: 3,  # American Indian/Alaska Native → 3
-                3: 4,  # Two or More → 4
-                4: 5   # Hispanic → 5
-            }
-        elif set(df["label"].unique()) == {
-            "Undergraduate student",
-            "Faculty",
-            "Graduate student",
-            "Alumni",
-            "Staff",
-            "Outside user"
-        }:
-            # patron type mapping
-            class_map = {
-                0: 1,  # Graduate → 1
-                1: 2,  # Faculty → 2
-                2: 3,  # Staff → 3
-                3: 4,  # Alumni → 4
-                4: 5   # Outside → 5
-            }
-
-        # build feature list with mapped classes
-        for i, feat in enumerate(feat_const):
-            for c in range(n_classes - 1):
-                feats_exp.append(feat)
-                original_class = class_map.get(c, c)  # map back to original concept class
-                classes_exp.append(str(original_class))
-
-        valid = ~np.isnan(params)
-        stats_df = pd.DataFrame({
-            'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
-            'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
-            'coef': params[valid],
-            'p_value': pvals[valid]
-        })
+    valid = ~np.isnan(params)
+    stats_df = pd.DataFrame({
+        'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
+        'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
+        'coef': params[valid],
+        'p_value': pvals[valid]
+    })
 
     stats_df = stats_df[stats_df.feature != 'const']
     stats_df = stats_df.dropna(subset=['coef', 'p_value']).reset_index(drop=True)
@@ -368,16 +290,18 @@ def probe(df, mode="content", max_features=120, model_name=None):
 
 
 def print_top_features(results, top_n=10):
+    """Print top features from each classifier."""
     for model in ["logistic", "mlp", "xgboost"]:
         if model in results:
             print(f"\n=== Top {top_n} features for {model.upper()} ===")
             print(results[model]["feature_weights"].head(top_n).to_string(index=False))
     if "statsmodels" in results:
-        print(f"\n=== Top {top_n} features by STATS MODELS Logistic Regression (with p-values) ===")
+        print(f"\n=== Top {top_n} features by Statistical Significance ===")
         print(results["statsmodels"].head(top_n).to_string(index=False))
 
 
 def serialize_for_json(results):
+    """Convert results to JSON-serializable format."""
     def convert(obj):
         if isinstance(obj, pd.DataFrame):
             return obj.to_dict(orient="records")
@@ -396,59 +320,73 @@ def serialize_for_json(results):
 
 def main():
     """
-    Main driver for probing LLM outputs by demographic attributes.
-    With --debug, only run a single probe and let errors propagate for inspection.
-    Otherwise, runs the full grid of models × characteristics × modes.
+    Main driver for fairness evaluation across public library LLM services.
     """
-    parser = argparse.ArgumentParser(description="Run attribute‐probing suite")
+    parser = argparse.ArgumentParser(description="Fairness Evaluation Protocol for Public Library LLMs")
     parser.add_argument(
         "--debug", action="store_true",
-        help="only run Gemma-2 patron_type/stopwords probe and expose any errors"
+        help="Run single debug probe (Llama gender evaluation)"
     )
     args = parser.parse_args()
 
     if args.debug:
-        model = "google/gemma-2-9b-it"
-        char = "patron_type"
-        mode = "stopwords"
-        print(f"DEBUG: running single probe for {model} / {char} / {mode}")
+        model = "meta-llama/Llama-3.1-8B-Instruct"
+        char = "gender"
+        print(f"DEBUG: Running fairness evaluation for {model} / {char}")
         df = load_data(model, char)
-        results = probe(df, mode=mode, max_features=120, model_name=model)
-        print("\nDEBUG: full statsmodels output:\n")
-        print(results["statsmodels"])
+        results = probe(df, max_features=100, model_name=model)
+        print_top_features(results)
+        print(f"\nClassification accuracies:")
+        for clf_name in ["logistic", "mlp", "xgboost"]:
+            if clf_name in results:
+                acc = results[clf_name]["mean_acc"]
+                ci = results[clf_name]["ci"]
+                print(f"{clf_name:>10}: {acc:.3f} [{ci[0]:.3f}, {ci[1]:.3f}]")
         sys.exit(0)
 
-    else:
-        model_names = [
-            "meta-llama/Llama-3.1-8B-Instruct",
-            "mistralai/Ministral-8B-Instruct-2410",
-            "google/gemma-2-9b-it",
-            "gpt-4o-2024-08-06",
-            "claude-3-5-sonnet-20241022",
-            "gemini-2.5-pro-preview-05-06"
-        ]
-        characteristics = ["sex", "race_ethnicity", "patron_type"]
-        modes = ["content", "stopwords"]
+    # full evaluation grid
+    model_names = [
+        "meta-llama/Llama-3.1-8B-Instruct",
+        "mistralai/Ministral-8B-Instruct-2410",
+        "google/gemma-2-9b-it",
+        "gpt-4o-2024-08-06",
+        "claude-3-5-sonnet-20241022",
+        "gemini-2.5-pro-preview-05-06"
+    ]
+    characteristics = ["gender", "race_ethnicity", "education", "household_income"]
 
-        all_results = {}
-        total = len(model_names) * len(characteristics) * len(modes)
-        progress = tqdm(total=total, desc="Running probes")
+    all_results = {}
+    total = len(model_names) * len(characteristics)
+    progress = tqdm(total=total, desc="Fairness Evaluation")
 
-        for model in model_names:
-            all_results[model] = {}
-            for char in characteristics:
+    for model in model_names:
+        all_results[model] = {}
+        for char in characteristics:
+            try:
                 df = load_data(model, char)
-                all_results[model][char] = {}
-                for mode in modes:
-                    results = probe(df, mode=mode, max_features=120, model_name=model)
-                    all_results[model][char][mode] = results
-                    progress.update(1)
+                results = probe(df, max_features=100, model_name=model)
+                all_results[model][char] = results
 
-        progress.close()
+                # print summary
+                print(f"\n{model} - {char}:")
+                for clf_name in ["logistic", "mlp", "xgboost"]:
+                    if clf_name in results:
+                        acc = results[clf_name]["mean_acc"]
+                        ci = results[clf_name]["ci"]
+                        print(f"  {clf_name:>10}: {acc:.3f} [{ci[0]:.3f}, {ci[1]:.3f}]")
 
-        with open("probe.json", "w") as f:
-            json.dump(serialize_for_json(all_results), f, indent=2)
-        print("\nAll experiments completed and results saved to 'probe.json'.")
+            except Exception as e:
+                print(f"Error evaluating {model} - {char}: {e}")
+                all_results[model][char] = {"error": str(e)}
+
+            progress.update(1)
+
+    progress.close()
+
+    # save results
+    with open("fairness_evaluation.json", "w") as f:
+        json.dump(serialize_for_json(all_results), f, indent=2)
+    print(f"\nFairness evaluation completed. Results saved to 'fairness_evaluation.json'")
 
 
 if __name__ == "__main__":
