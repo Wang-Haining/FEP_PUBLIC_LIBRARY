@@ -65,14 +65,16 @@ from sklearn.preprocessing import LabelEncoder
 from tqdm import tqdm
 from xgboost import XGBClassifier
 
-nltk.download('stopwords', quiet=True)
+nltk.download("stopwords", quiet=True)
 stop_words_set = set(stopwords.words("english"))
 
 
-def load_data(model_name: str,
-              characteristic: str,
-              input_dir: str = "outputs",
-              failure_token: str = "[NO_TEXT_AFTER_RETRIES]") -> pd.DataFrame:
+def load_data(
+    model_name: str,
+    characteristic: str,
+    input_dir: str = "outputs",
+    failure_token: str = "[NO_TEXT_AFTER_RETRIES]",
+) -> pd.DataFrame:
     """
     Load model generation outputs and extract text responses and target characteristics.
 
@@ -85,11 +87,19 @@ def load_data(model_name: str,
     Returns:
     - DataFrame with columns ['response', 'label', 'seed'].
     """
-    assert characteristic in ['gender', 'race_ethnicity', 'education', 'household_income'], \
-        "Characteristic must be one of: gender, race_ethnicity, education, household_income"
+    assert characteristic in [
+        "gender",
+        "race_ethnicity",
+        "education",
+        "household_income",
+    ], "Characteristic must be one of: gender, race_ethnicity, education, household_income"
 
-    tag = model_name.split('/')[-1].replace('-', '_').replace('/', '_')
-    files = [f for f in os.listdir(input_dir) if f.startswith(f"{tag}_seed_") and f.endswith(".json")]
+    tag = model_name.split("/")[-1].replace("-", "_").replace("/", "_")
+    files = [
+        f
+        for f in os.listdir(input_dir)
+        if f.startswith(f"{tag}_seed_") and f.endswith(".json")
+    ]
 
     rows = []
     for file in files:
@@ -97,12 +107,14 @@ def load_data(model_name: str,
             data = json.load(f)
             for entry in data:
                 response = entry["response"]
-                if failure_token not in response:  # Filter out failed generations
-                    rows.append({
-                        "response": response,
-                        "label": entry[characteristic],
-                        "seed": entry["seed"]
-                    })
+                if failure_token not in response:  # filter out failed generations
+                    rows.append(
+                        {
+                            "response": response,
+                            "label": entry[characteristic],
+                            "seed": entry["seed"],
+                        }
+                    )
 
     df = pd.DataFrame(rows)
     df = df.dropna(subset=["response", "label"]).reset_index(drop=True)
@@ -113,7 +125,7 @@ def compute_ci(accs, confidence=0.95):
     """Compute mean and confidence interval for accuracy scores."""
     mean = np.mean(accs)
     sem = np.std(accs, ddof=1) / np.sqrt(len(accs))
-    h = sem * t.ppf((1 + confidence) / 2., len(accs) - 1)
+    h = sem * t.ppf((1 + confidence) / 2.0, len(accs) - 1)
     return mean, (mean - h, mean + h)
 
 
@@ -126,17 +138,15 @@ def get_feature_weights(clf, feature_names, model_type):
     elif model_type == "xgboost":
         booster = clf.get_booster()
         importance = booster.get_score(importance_type="weight")
-        return pd.DataFrame({
-            "feature": list(importance.keys()),
-            "weight": list(importance.values())
-        }).sort_values(by="weight", ascending=False)
+        return pd.DataFrame(
+            {"feature": list(importance.keys()), "weight": list(importance.values())}
+        ).sort_values(by="weight", ascending=False)
     else:
         raise ValueError("Unsupported model type")
 
-    return pd.DataFrame({
-        "feature": feature_names,
-        "weight": weights
-    }).sort_values(by="weight", ascending=False)
+    return pd.DataFrame({"feature": feature_names, "weight": weights}).sort_values(
+        by="weight", ascending=False
+    )
 
 
 def probe(df, max_features=100, model_name=None):
@@ -161,15 +171,14 @@ def probe(df, max_features=100, model_name=None):
     class ContentTokenizer:
         def __init__(self):
             self.exclusion_set = set(stop_words_set).union({"mr", "ms", "mrs", "miss"})
+
         def __call__(self, doc):
             tokens = [t.strip(string.punctuation).lower() for t in doc.split()]
             return [t for t in tokens if t and t not in self.exclusion_set]
 
     # TF-IDF vectorization with fixed feature count
     vectorizer = TfidfVectorizer(
-        tokenizer=ContentTokenizer(),
-        token_pattern=None,
-        max_features=max_features
+        tokenizer=ContentTokenizer(), token_pattern=None, max_features=max_features
     )
     X = vectorizer.fit_transform(df["response"]).toarray()
 
@@ -183,37 +192,68 @@ def probe(df, max_features=100, model_name=None):
         le.classes_ = np.array(["Male", "Nonbinary", "Female"])
         reference_group = "Female"
     elif unique_labels == {
-        "White", "Black or African American", "Asian or Pacific Islander",
-        "American Indian or Alaska Native", "Two or More Races", "Hispanic or Latino"
+        "White",
+        "Black or African American",
+        "Asian or Pacific Islander",
+        "American Indian or Alaska Native",
+        "Two or More Races",
+        "Hispanic or Latino",
     }:
         # white as reference (encoded as 5)
-        le.classes_ = np.array([
-            "Black or African American", "Asian or Pacific Islander",
-            "American Indian or Alaska Native", "Two or More Races",
-            "Hispanic or Latino", "White"
-        ])
+        le.classes_ = np.array(
+            [
+                "Black or African American",
+                "Asian or Pacific Islander",
+                "American Indian or Alaska Native",
+                "Two or More Races",
+                "Hispanic or Latino",
+                "White",
+            ]
+        )
         reference_group = "White"
     elif unique_labels == {
-        "Less than high school", "High school graduate", "Some college, no degree",
-        "Associate degree", "Bachelor's degree", "Master's degree",
-        "Professional degree", "Doctorate degree"
+        "Less than high school",
+        "High school graduate",
+        "Some college, no degree",
+        "Associate degree",
+        "Bachelor's degree",
+        "Master's degree",
+        "Professional degree",
+        "Doctorate degree",
     }:
         # less than high school as reference (encoded as 7)
-        le.classes_ = np.array([
-            "High school graduate", "Some college, no degree", "Associate degree",
-            "Bachelor's degree", "Master's degree", "Professional degree",
-            "Doctorate degree", "Less than high school"
-        ])
+        le.classes_ = np.array(
+            [
+                "High school graduate",
+                "Some college, no degree",
+                "Associate degree",
+                "Bachelor's degree",
+                "Master's degree",
+                "Professional degree",
+                "Doctorate degree",
+                "Less than high school",
+            ]
+        )
         reference_group = "Less than high school"
     elif unique_labels == {
-        "Under $25,000", "$25,000 to $49,999", "$50,000 to $74,999",
-        "$75,000 to $99,999", "$100,000 to $149,999", "$150,000 and above"
+        "Under $25,000",
+        "$25,000 to $49,999",
+        "$50,000 to $74,999",
+        "$75,000 to $99,999",
+        "$100,000 to $149,999",
+        "$150,000 and above",
     }:
         # under $25,000 as reference (encoded as 5)
-        le.classes_ = np.array([
-            "$25,000 to $49,999", "$50,000 to $74,999", "$75,000 to $99,999",
-            "$100,000 to $149,999", "$150,000 and above", "Under $25,000"
-        ])
+        le.classes_ = np.array(
+            [
+                "$25,000 to $49,999",
+                "$50,000 to $74,999",
+                "$75,000 to $99,999",
+                "$100,000 to $149,999",
+                "$150,000 and above",
+                "Under $25,000",
+            ]
+        )
         reference_group = "Under $25,000"
     else:
         raise RuntimeError(f"Unexpected label set: {sorted(unique_labels)}")
@@ -232,14 +272,27 @@ def probe(df, max_features=100, model_name=None):
             C=1.0, max_iter=1000, solver="liblinear", penalty="l2", random_state=93187
         ),
         "mlp": lambda: MLPClassifier(
-            hidden_layer_sizes=(128, 64), activation="relu", solver="adam",
-            alpha=1e-4, max_iter=2000, early_stopping=True, random_state=93187
+            hidden_layer_sizes=(128, 64),
+            activation="relu",
+            solver="adam",
+            alpha=1e-4,
+            max_iter=2000,
+            early_stopping=True,
+            random_state=93187,
         ),
         "xgboost": lambda: XGBClassifier(
-            n_estimators=100, learning_rate=0.1, max_depth=4,
-            subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0,
-            use_label_encoder=False, eval_metric="logloss", verbosity=0, random_state=93187
-        )
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=4,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            reg_alpha=0.1,
+            reg_lambda=1.0,
+            use_label_encoder=False,
+            eval_metric="logloss",
+            verbosity=0,
+            random_state=93187,
+        ),
     }
 
     # run classifiers
@@ -271,9 +324,9 @@ def probe(df, max_features=100, model_name=None):
     X_const = sm.add_constant(X)
     n_classes = len(np.unique(y))
 
-    sm_model = sm.MNLogit(y, X_const).fit(disp=0, maxiter=2000, method='lbfgs')
+    sm_model = sm.MNLogit(y, X_const).fit(disp=0, maxiter=2000, method="lbfgs")
     params, pvals = sm_model.params.flatten(), sm_model.pvalues.flatten()
-    feat_const = ['const'] + list(feature_names)
+    feat_const = ["const"] + list(feature_names)
     feats_exp, classes_exp = [], []
 
     # build feature-class combinations (excluding reference class)
@@ -283,17 +336,21 @@ def probe(df, max_features=100, model_name=None):
             classes_exp.append(le.classes_[c])  # Non-reference classes
 
     valid = ~np.isnan(params)
-    stats_df = pd.DataFrame({
-        'feature': [feats_exp[i] for i in range(len(valid)) if valid[i]],
-        'class': [classes_exp[i] for i in range(len(valid)) if valid[i]],
-        'coef': params[valid],
-        'p_value': pvals[valid]
-    })
+    stats_df = pd.DataFrame(
+        {
+            "feature": [feats_exp[i] for i in range(len(valid)) if valid[i]],
+            "class": [classes_exp[i] for i in range(len(valid)) if valid[i]],
+            "coef": params[valid],
+            "p_value": pvals[valid],
+        }
+    )
 
-    stats_df = stats_df[stats_df.feature != 'const']
-    stats_df = stats_df.dropna(subset=['coef', 'p_value']).reset_index(drop=True)
-    stats_df = stats_df.loc[stats_df['coef'].abs().sort_values(ascending=False).index].reset_index(drop=True)
-    results['statsmodels'] = stats_df
+    stats_df = stats_df[stats_df.feature != "const"]
+    stats_df = stats_df.dropna(subset=["coef", "p_value"]).reset_index(drop=True)
+    stats_df = stats_df.loc[
+        stats_df["coef"].abs().sort_values(ascending=False).index
+    ].reset_index(drop=True)
+    results["statsmodels"] = stats_df
 
     return results
 
@@ -311,6 +368,7 @@ def print_top_features(results, top_n=10):
 
 def serialize_for_json(results):
     """Convert results to JSON-serializable format."""
+
     def convert(obj):
         if isinstance(obj, pd.DataFrame):
             return obj.to_dict(orient="records")
@@ -324,6 +382,7 @@ def serialize_for_json(results):
             return {k: convert(v) for k, v in obj.items()}
         else:
             return obj
+
     return convert(results)
 
 
@@ -331,10 +390,13 @@ def main():
     """
     Main driver for fairness evaluation across public library LLM services.
     """
-    parser = argparse.ArgumentParser(description="Fairness Evaluation Protocol for Public Library LLMs")
+    parser = argparse.ArgumentParser(
+        description="Fairness Evaluation Protocol for Public Library LLMs"
+    )
     parser.add_argument(
-        "--debug", action="store_true",
-        help="Run single debug probe (Llama gender evaluation)"
+        "--debug",
+        action="store_true",
+        help="Run single debug probe (Llama gender evaluation)",
     )
     args = parser.parse_args()
 
@@ -395,7 +457,9 @@ def main():
     # save results
     with open("fairness_evaluation.json", "w") as f:
         json.dump(serialize_for_json(all_results), f, indent=2)
-    print(f"\nFairness evaluation completed. Results saved to 'fairness_evaluation.json'")
+    print(
+        f"\nFairness evaluation completed. Results saved to 'fairness_evaluation.json'"
+    )
 
 
 if __name__ == "__main__":
