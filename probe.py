@@ -139,7 +139,7 @@ def get_feature_weights(clf, feature_names, model_type):
     }).sort_values(by="weight", ascending=False)
 
 
-def probe(df, max_features=110, model_name=None):
+def probe(df, max_features=100, model_name=None):
     """
     Fairness evaluation using classification-based bias detection.
 
@@ -149,7 +149,7 @@ def probe(df, max_features=110, model_name=None):
 
     Parameters:
         - df: DataFrame with 'response', 'label', 'seed'
-        - max_features: number of top TF-IDF features to use (fixed at 110)
+        - max_features: number of top TF-IDF features to use (fixed at 100)
         - model_name: model identifier for logging
 
     Returns:
@@ -220,16 +220,16 @@ def probe(df, max_features=110, model_name=None):
     # classifier definitions
     model_defs = {
         "logistic": lambda: LogisticRegression(
-            C=1.0, max_iter=1000, solver="liblinear", penalty="l2", random_state=42
+            C=1.0, max_iter=1000, solver="liblinear", penalty="l2", random_state=93187
         ),
         "mlp": lambda: MLPClassifier(
             hidden_layer_sizes=(128, 64), activation="relu", solver="adam",
-            alpha=1e-4, max_iter=2000, early_stopping=True, random_state=42
+            alpha=1e-4, max_iter=2000, early_stopping=True, random_state=93187
         ),
         "xgboost": lambda: XGBClassifier(
             n_estimators=100, learning_rate=0.1, max_depth=4,
             subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0,
-            use_label_encoder=False, eval_metric="logloss", verbosity=0, random_state=42
+            use_label_encoder=False, eval_metric="logloss", verbosity=0, random_state=93187
         )
     }
 
@@ -334,7 +334,7 @@ def main():
         char = "gender"
         print(f"DEBUG: Running fairness evaluation for {model} / {char}")
         df = load_data(model, char)
-        results = probe(df, max_features=110, model_name=model)
+        results = probe(df, max_features=100, model_name=model)
         print_top_features(results)
         print(f"\nClassification accuracies:")
         for clf_name in ["logistic", "mlp", "xgboost"]:
@@ -364,7 +364,7 @@ def main():
         for char in characteristics:
             try:
                 df = load_data(model, char)
-                results = probe(df, max_features=110, model_name=model)
+                results = probe(df, max_features=100, model_name=model)
                 all_results[model][char] = results
 
                 # print summary
