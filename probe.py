@@ -173,44 +173,53 @@ def probe(df, max_features=100, model_name=None):
     )
     X = vectorizer.fit_transform(df["response"]).toarray()
 
-    # explicit label encoding with proper ordering for statsmodels
+    # explicit label encoding with proper reference group ordering for statsmodels
     le = LabelEncoder()
     unique_labels = set(df["label"].unique())
 
-    # define reference groups (last in each list) for statsmodels interpretation
+    # define reference groups and ordering (reference group last for statsmodels)
     if unique_labels == {"Female", "Male", "Nonbinary"}:
-        le.classes_ = np.array(["Male", "Nonbinary", "Female"])  # female as reference
+        # female as reference (encoded as 2)
+        le.classes_ = np.array(["Male", "Nonbinary", "Female"])
+        reference_group = "Female"
     elif unique_labels == {
         "White", "Black or African American", "Asian or Pacific Islander",
         "American Indian or Alaska Native", "Two or More Races", "Hispanic or Latino"
     }:
+        # white as reference (encoded as 5)
         le.classes_ = np.array([
             "Black or African American", "Asian or Pacific Islander",
             "American Indian or Alaska Native", "Two or More Races",
-            "Hispanic or Latino", "White"  # white as reference
+            "Hispanic or Latino", "White"
         ])
+        reference_group = "White"
     elif unique_labels == {
         "Less than high school", "High school graduate", "Some college, no degree",
         "Associate degree", "Bachelor's degree", "Master's degree",
         "Professional degree", "Doctorate degree"
     }:
+        # less than high school as reference (encoded as 7)
         le.classes_ = np.array([
             "High school graduate", "Some college, no degree", "Associate degree",
             "Bachelor's degree", "Master's degree", "Professional degree",
-            "Doctorate degree", "Less than high school"  # less than high school as reference
+            "Doctorate degree", "Less than high school"
         ])
+        reference_group = "Less than high school"
     elif unique_labels == {
         "Under $25,000", "$25,000 to $49,999", "$50,000 to $74,999",
         "$75,000 to $99,999", "$100,000 to $149,999", "$150,000 and above"
     }:
+        # under $25,000 as reference (encoded as 5)
         le.classes_ = np.array([
             "$25,000 to $49,999", "$50,000 to $74,999", "$75,000 to $99,999",
-            "$100,000 to $149,999", "$150,000 and above", "Under $25,000"  # under $25K as reference
+            "$100,000 to $149,999", "$150,000 and above", "Under $25,000"
         ])
+        reference_group = "Under $25,000"
     else:
         raise RuntimeError(f"Unexpected label set: {sorted(unique_labels)}")
 
     y = le.fit_transform(df["label"])
+    print(f"Reference group: {reference_group} (encoded as {len(le.classes_)-1})")
     feature_names = vectorizer.get_feature_names_out()
 
     # cross-validation splits by seed
