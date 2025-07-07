@@ -139,7 +139,7 @@ def get_feature_weights(clf, feature_names, model_type):
     }).sort_values(by="weight", ascending=False)
 
 
-def probe(df, max_features=100, model_name=None):
+def probe(df, max_features=120, model_name=None):
     """
     Fairness evaluation using classification-based bias detection.
 
@@ -149,7 +149,7 @@ def probe(df, max_features=100, model_name=None):
 
     Parameters:
         - df: DataFrame with 'response', 'label', 'seed'
-        - max_features: number of top TF-IDF features to use (fixed at 100)
+        - max_features: number of top TF-IDF features to use (fixed at 120)
         - model_name: model identifier for logging
 
     Returns:
@@ -334,7 +334,7 @@ def main():
         char = "gender"
         print(f"DEBUG: Running fairness evaluation for {model} / {char}")
         df = load_data(model, char)
-        results = probe(df, max_features=100, model_name=model)
+        results = probe(df, max_features=120, model_name=model)
         print_top_features(results)
         print(f"\nClassification accuracies:")
         for clf_name in ["logistic", "mlp", "xgboost"]:
@@ -364,7 +364,7 @@ def main():
         for char in characteristics:
             try:
                 df = load_data(model, char)
-                results = probe(df, max_features=100, model_name=model)
+                results = probe(df, max_features=120, model_name=model)
                 all_results[model][char] = results
 
                 # print summary
