@@ -349,9 +349,9 @@ def main():
         "meta-llama/Llama-3.1-8B-Instruct",
         "mistralai/Ministral-8B-Instruct-2410",
         "google/gemma-2-9b-it",
-        "gpt-4o-2024-08-06",
-        "claude-3-5-sonnet-20241022",
-        "gemini-2.5-pro-preview-05-06"
+        # "gpt-4o-2024-08-06",
+        # "claude-3-5-sonnet-20241022",
+        # "gemini-2.5-pro-preview-05-06"
     ]
     characteristics = ["gender", "race_ethnicity", "education", "household_income"]
 
