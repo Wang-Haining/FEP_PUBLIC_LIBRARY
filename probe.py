@@ -65,7 +65,7 @@ from sklearn.preprocessing import LabelEncoder
 from tqdm import tqdm
 from xgboost import XGBClassifier
 
-nltk.download('stopwords')
+nltk.download('stopwords', quiet=True)
 stop_words_set = set(stopwords.words("english"))
 
 
@@ -223,7 +223,7 @@ def probe(df, max_features=100, model_name=None):
             C=1.0, max_iter=1000, solver="liblinear", penalty="l2", random_state=42
         ),
         "mlp": lambda: MLPClassifier(
-            hidden_layer_sizes=(100, 64, 16), activation="relu", solver="adam",
+            hidden_layer_sizes=(64, 32), activation="relu", solver="adam",
             alpha=1e-4, max_iter=2000, early_stopping=True, random_state=42
         ),
         "xgboost": lambda: XGBClassifier(
