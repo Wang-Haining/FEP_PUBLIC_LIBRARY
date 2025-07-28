@@ -1,4 +1,4 @@
-# Fairness Evaluation of Large Language Models in Public Libraries ⚖️
+# Fairness Evaluation of Large Language Models in Public Libraries 🔍
 
 This repository supports the paper **Fairness Evaluation of Large Language Models in Public Libraries**.
 Our project presents an explainable diagnostic framework for auditing the fairness of large language models (LLMs) in
